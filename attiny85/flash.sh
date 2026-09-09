@@ -1,10 +1,10 @@
 #!/bin/bash
 #
-# Flash the correct firmware variant for the connected ATtiny85 based on its
-# fused clock. Auto-detects 8 MHz (lfuse 0xE2) vs 16 MHz (lfuse 0xE1) and picks
-# the matching hex from hex/.
+# Flash firmware to ATtiny85. Auto-detects 8 MHz (lfuse 0xE2) vs 16 MHz
+# (lfuse 0xE1) and picks the matching hex from hex/.
 #
-#   ./flash.sh v3          # flash v3 (auto clock match)
+#   ./flash.sh v4          # flash v4 (auto clock match) -- DEFAULT
+#   ./flash.sh v3          # flash v3
 #   ./flash.sh v2          # flash v2
 #   ./flash.sh --read      # just report signature + fuses
 #
@@ -13,10 +13,13 @@
 set -e
 cd "$(dirname "$0")"
 
+# Scrub host CFLAGS that break AVR tools (rtk wrapper leak).
+unset C_INCLUDE_PATH CPLUS_INCLUDE_PATH CPATH CFLAGS CXXFLAGS
+
 PORT="${PORT:-/dev/ttyACM0}"
 PROG="${PROG:-arduino}"
 BAUD=19200
-VER="${1:-v3}"
+VER="${1:-v4}"
 
 sig_fuses() {
     avrdude -c "$PROG" -p attiny85 -P "$PORT" -b $BAUD \
@@ -34,6 +37,13 @@ if [ -z "$SIG" ]; then
     echo "ERROR: could not read signature. Check wiring/programmer." >&2
     exit 1
 fi
+
+if [ "$VER" = "--read" ]; then
+    echo "Signature: $SIG"
+    echo "lfuse:     $LFUSE"
+    exit 0
+fi
+
 echo "Signature: $SIG"
 
 case "$LFUSE" in

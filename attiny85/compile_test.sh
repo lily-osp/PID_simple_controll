@@ -1,15 +1,17 @@
 #!/bin/bash
 #
-# ATTiny85 Compile Test Script
-# Tests compilation for internal 8MHz configuration
+# ATTiny85 Compile Test Script (ATTinyCore, internal 8MHz)
 #
 
 set -e
 
+# Scrub host CFLAGS that break the AVR cross-compile (rtk wrapper leak).
+unset C_INCLUDE_PATH CPLUS_INCLUDE_PATH CPATH CFLAGS CXXFLAGS
+
 SKETCH_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKETCH_NAME="attiny85.ino"
-# Use specific FQBN for ATtiny85 with 8MHz internal clock
-BOARD_FQBN="attiny:avr:ATtinyX5:cpu=attiny85,clock=internal8"
+# ATTinyCore FQBN for ATtiny85 with 8MHz internal clock
+BOARD_FQBN="ATTinyCore:avr:attinyx5:chip=85,clock=8internal"
 BUILD_DIR="${SKETCH_DIR}/compiled"
 
 # Colors
