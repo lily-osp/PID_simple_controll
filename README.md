@@ -116,6 +116,20 @@ cd PID_simple_controll
 - VCC (Pin 8): 5V power
 - GND (Pin 4): Ground
 
+```
+        ┌──◡──┐
+  VCC ──┤1  8 ├── VCC (5V / RST — programmer manages this)
+  PB3 ──┤2  7 ├── PB2 (NC)
+  PB4 ──┤3  6 ├── PB1 (v4 debug heartbeat: HIGH = pulses seen)
+  GND ──┤4  5 ├── PB0 (PWM → ESC/driver)
+        └─────┘
+```
+
+GND must be common between MCU, driver/battery, and sensor. For driver
+boards with a `VR` analog speed pin, feed PB0 through an RC low-pass
+(220 Ω + 220 µF near the VR pin) instead of raw PWM. Full wiring notes:
+[`attiny85/v4/README.md`](attiny85/v4/README.md).
+
 ### ESP32-C3 (`esp32-c3/`)
 
 **Processor**: RISC-V @ 160MHz with hardware FPU
