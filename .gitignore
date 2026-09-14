@@ -491,3 +491,6 @@ docker-compose.yml
 memory.db
 memory.db-journal
 memory.db-*
+hela-runs.db
+hela-runs.db-journal
+hela-runs.db-*

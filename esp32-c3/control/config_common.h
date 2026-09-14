@@ -5,17 +5,20 @@
 #define CONTROL_LOOP_HZ 200
 #define CONTROL_PERIOD_MS (1000 / CONTROL_LOOP_HZ)
 
-// PID Constants (Proven Values)
+// PID Constants. Output is DIRECTLY in PWM counts (0-255):
+//   kp: PWM per RPM of error        (100 RPM err * 0.15 = 15 PWM)
+//   ki: PWM per (RPM*s) integrated  (100 RPM err => ~0.06 PWM/cycle at 200Hz)
+//   kd: PWM per (RPM/s) of slope    (500 RPM/s slope * 0.004 = 2 PWM)
 #define DEFAULT_TARGET_RPM 1440.0
 #define DEFAULT_KP 0.150
-#define DEFAULT_KI 0.080
-#define DEFAULT_KD 0.015
+#define DEFAULT_KI 0.120
+#define DEFAULT_KD 0.004
 
-// Limits
-#define PID_OUTPUT_MIN -5000
-#define PID_OUTPUT_MAX 5000
-#define INTEGRAL_WINDUP_MIN -1000
-#define INTEGRAL_WINDUP_MAX 1000
+// Limits (PWM-count domain)
+#define PID_OUTPUT_MIN 0
+#define PID_OUTPUT_MAX 255
+#define INTEGRAL_WINDUP_MIN 0
+#define INTEGRAL_WINDUP_MAX 255
 
 // PWM Limits (8-bit resolution 0-255 for compatibility logic)
 #define PWM_MIN_VALUE 0

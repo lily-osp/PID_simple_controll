@@ -141,10 +141,10 @@ Hall Sensor (5V)                Arduino Uno               ESC (PWM)
 ```
           ATtiny85 (Top View)
           ┌────┴────┐
-  Reset ──┤1      8├── VCC (5V)
-  PB3/2 ──┤2      7├── PB2 (unused)
-  PB4/3 ──┤3      6├── PB1 (unused)
-    GND ──┤4      5├── PB0 (PWM Out)
+  Reset ──┤1       8├── VCC (5V)
+  PB3/2 ──┤2       7├── PB2 (unused)
+  PB4/3 ──┤3       6├── PB1 (unused)
+    GND ──┤4       5├── PB0 (PWM Out)
           └─────────┘
 
 Connection Details:

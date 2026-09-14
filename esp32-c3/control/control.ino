@@ -35,10 +35,12 @@ volatile int lastPWMValue = 0;
 // Filter & PID State
 RPMFilter rpmFilter;
 float integral = 0.0;
-float previousError = 0.0;
+float prevMeasurement = 0.0;
 float filteredDerivative = 0.0;
 
 // Startup State
+bool arming = true;
+unsigned long bootTime = 0;
 bool softStarting = true;
 unsigned long softStartStartTime = 0;
 
@@ -60,8 +62,8 @@ void setup() {
     pcnt_init(RPM_INPUT_PIN);
     ledc_init(PWM_OUTPUT_PIN);
 
-    // Create Control Loop Task (High Priority, but not max - leaves room for
-    // WiFi/BLE and other system tasks to run)
+    // Create Control Loop Task (high priority; single-core C3, no wireless
+    // stack running, so nothing preempts the 5ms cadence)
     xTaskCreatePinnedToCore(controlLoop,              // Function
                             "ControlLoop",            // Name
                             4096,                     // Stack size
@@ -82,7 +84,9 @@ void loop() {
 void controlLoop(void *parameter) {
     TickType_t xLastWakeTime;
     const TickType_t xFrequency = pdMS_TO_TICKS(CONTROL_PERIOD_MS);
+    const float dt = (float)CONTROL_PERIOD_MS / 1000.0f;
     xLastWakeTime = xTaskGetTickCount();
+    bootTime = millis();
 
     while (true) {
         bool trimActive = (digitalRead(POT_ENABLE_PIN) == LOW);
@@ -91,6 +95,21 @@ void controlLoop(void *parameter) {
         float ki = DEFAULT_KI * sens;
         float kd = DEFAULT_KD * sens;
         targetRPM = DEFAULT_TARGET_RPM * RPM_CAL_SCALE;
+
+        // 0. ESC arming: hold zero throttle so the ESC arms on power-up.
+        // Skipped automatically after ESC_ARM_DURATION_MS.
+        if (arming) {
+            if (millis() - bootTime < ESC_ARM_DURATION_MS) {
+                motor_set_pwm(PWM_IDLE);
+                lastPWMValue = PWM_IDLE;
+                // Keep filter/derivative state warm so PID starts bumpless.
+                currentRPM = rpmFilter.update(pcnt_get_rpm());
+                prevMeasurement = currentRPM;
+                vTaskDelayUntil(&xLastWakeTime, xFrequency);
+                continue;
+            }
+            arming = false;
+        }
 
         // 1. Calculate RPM
         float rawRPM = pcnt_get_rpm();
@@ -112,9 +131,12 @@ void controlLoop(void *parameter) {
                 softStarting = true;
                 softStartStartTime = 0;
                 integral = 0.0f;
+                filteredDerivative = 0.0f;
+                prevMeasurement = currentRPM;
             } else {
                 motor_set_pwm(PWM_IDLE);
                 lastPWMValue = PWM_IDLE;
+                prevMeasurement = currentRPM;
                 vTaskDelayUntil(&xLastWakeTime, xFrequency);
                 continue;
             }
@@ -125,21 +147,27 @@ void controlLoop(void *parameter) {
             pcnt_pulse_age_us() > (unsigned long)STALL_TIMEOUT_MS * 1000UL) {
             stalled = true;
             integral = 0.0f;
+            filteredDerivative = 0.0f;
+            prevMeasurement = currentRPM;
             motor_set_pwm(PWM_IDLE);
             lastPWMValue = PWM_IDLE;
             vTaskDelayUntil(&xLastWakeTime, xFrequency);
             continue;
         }
 
-        // 3. Compute PID
+        // 3. Compute PID (output is directly PWM 0-255, no map() step:
+        // map() from +/-5000 quantised away all fine corrections, <1 PWM
+        // step per ~40 RPM of error, so the loop could never settle).
         float error = targetRPM - currentRPM;
-        pidOutput = computePID_float(error, integral, previousError, filteredDerivative, kp, ki, kd,
+        pidOutput = computePID_float(error, currentRPM, integral, prevMeasurement,
+                                     filteredDerivative, kp, ki, kd, dt,
                                      INTEGRAL_WINDUP_MIN, INTEGRAL_WINDUP_MAX, PID_OUTPUT_MIN,
                                      PID_OUTPUT_MAX);
 
-        // 4. Map to PWM
-        int targetPWM =
-            map(pidOutput, PID_OUTPUT_MIN, PID_OUTPUT_MAX, PWM_MIN_VALUE, PWM_MAX_VALUE);
+        // 4. Clamp to usable ESC range. NOTE: PWM_MIN_THRESHOLD must sit
+        // below the PWM needed for 1440 RPM, or the motor can never slow
+        // down to target. Measure your operating point and keep margin.
+        int targetPWM = (int)(pidOutput + 0.5f);
         targetPWM = constrain(targetPWM, PWM_MIN_THRESHOLD, PWM_MAX_VALUE);
 
         // 5. Apply Soft Start (Kickstart)

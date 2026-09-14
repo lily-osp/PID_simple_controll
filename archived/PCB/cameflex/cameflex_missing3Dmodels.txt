@@ -1,0 +1,42 @@
+### Missing 3D models - created on 2026-06-04 22:19
+### Printed by checking_3D_models plugin
+Board file: /home/azzar/project/microcontrollers/PIDs/PID_simple_controll/PCB/cameflex/cameflex.kicad_pcb
+3D missing models written to:
+/home/azzar/project/microcontrollers/PIDs/PID_simple_controll/PCB/cameflex/cameflex_missing3Dmodels.txt
+-------
+('R13', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('R11', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('R15', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('LED1', '/usr/share/kicad/3dmodels/LED_SMD.3dshapes/LED_0805_2012Metric.step')
+('Q1', '/usr/share/kicad/3dmodels/Package_DFN_QFN.3dshapes/Texas_PicoStar_DFN-3_0.69x0.60mm.step')
+('C11', '/usr/share/kicad/3dmodels/Capacitor_SMD.3dshapes/C_0805_2012Metric.step')
+('R17', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('R18', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('R5', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('J3', '/usr/share/kicad/3dmodels/Connector_PinHeader_2.54mm.3dshapes/PinHeader_1x05_P2.54mm_Vertical.step')
+('RV1', '/usr/share/kicad/3dmodels/Potentiometer_THT.3dshapes/Potentiometer_Bourns_3296W_Vertical.step')
+('J2', '/usr/share/kicad/3dmodels/Connector_PinHeader_2.54mm.3dshapes/PinHeader_1x09_P2.54mm_Vertical.step')
+('R12', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('D3', '/usr/share/kicad/3dmodels/Diode_SMD.3dshapes/D_SOD-123.step')
+('U1', '/usr/share/kicad/3dmodels/Package_SO.3dshapes/SOP-16_3.9x9.9mm_P1.27mm.step')
+('R8', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('C14', '/usr/share/kicad/3dmodels/Capacitor_SMD.3dshapes/C_0805_2012Metric.step')
+('D2', '/usr/share/kicad/3dmodels/Diode_SMD.3dshapes/D_SOD-123.step')
+('LED2', '/usr/share/kicad/3dmodels/LED_SMD.3dshapes/LED_0805_2012Metric.step')
+('R19', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('R14', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('C12', '/usr/share/kicad/3dmodels/Capacitor_SMD.3dshapes/C_0805_2012Metric.step')
+('R20', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('R10', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('C13', '/usr/share/kicad/3dmodels/Capacitor_SMD.3dshapes/C_0805_2012Metric.step')
+('J1', '/usr/share/kicad/3dmodels/Connector_PinHeader_2.54mm.3dshapes/PinHeader_1x09_P2.54mm_Vertical.step')
+('C15', '/usr/share/kicad/3dmodels/Capacitor_SMD.3dshapes/C_0805_2012Metric.step')
+('R16', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('D1', '/usr/share/kicad/3dmodels/Diode_SMD.3dshapes/D_SOD-123.step')
+('U3', '/usr/share/kicad/3dmodels/Package_SO.3dshapes/TSSOP-20_4.4x6.5mm_P0.65mm.step')
+('R4', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+('C6', '/usr/share/kicad/3dmodels/Capacitor_SMD.3dshapes/C_0805_2012Metric.step')
+('R9', '/usr/share/kicad/3dmodels/Resistor_SMD.3dshapes/R_0805_2012Metric.step')
+-------
+NUM of 3D missing models:33
+checked extensions ['.stp', '.step', '.stpZ']

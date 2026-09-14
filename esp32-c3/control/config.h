@@ -20,6 +20,11 @@
 // Soft-Start
 #define SOFT_START_DURATION_MS 1500 // 1.5 seconds
 
+// ESC arming: hold zero throttle this long after boot so the ESC arms
+// before the soft-start ramp begins. Increase to 2500-3000 if your ESC
+// needs a longer arming window.
+#define ESC_ARM_DURATION_MS 2000
+
 // Stall / sensor-loss failsafe: if no pulse arrives for this long while the
 // motor has reached near-target speed, power is cut to protect the motor/driver.
 // 150ms is ~14x the target pulse period (10.4ms @ 1440 RPM).

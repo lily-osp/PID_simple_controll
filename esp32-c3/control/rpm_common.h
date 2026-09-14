@@ -1,11 +1,13 @@
 #ifndef RPM_COMMON_H
 #define RPM_COMMON_H
 
-// Larger window: more samples = smoother. ESP32-C3 has plenty of RAM.
-#define RPM_FILTER_SIZE 24
+// Window + IIR combo. 12 samples @ 200Hz ~= 60ms averaging: enough to
+// smooth the ~20ms pcnt updates at 1440 RPM without the ~150ms lag a
+// 24-sample window adds (phase lag directly hurts PID stability).
+#define RPM_FILTER_SIZE 12
 
 // IIR coefficient (0.0-1.0). Lower = smoother, higher = more responsive.
-#define RPM_IIR_ALPHA 0.35f
+#define RPM_IIR_ALPHA 0.45f
 
 class RPMFilter {
   private:

@@ -1,6 +1,7 @@
 # ESP32-C3 BLDC PID Controller
 
-High-performance PID controller for BLDC motors leveraging ESP32-C3 hardware peripherals, FreeRTOS real-time control, and optional Bluetooth Low Energy interface.
+Fixed-target PID controller for BLDC motors on the ESP32-C3, run bare-metal
+for compute (no WiFi, no BLE). Holds 1440 RPM via a 200Hz FreeRTOS loop.
 
 ## Table of Contents
 
@@ -8,180 +9,196 @@ High-performance PID controller for BLDC motors leveraging ESP32-C3 hardware per
 - [Project Structure](#project-structure)
 - [Quick Start](#quick-start)
 - [Hardware Setup](#hardware-setup)
-- [Firmware Variants](#firmware-variants)
-  - [Standard Controller](#1-standard-controller-control)
-  - [BLE Controller](#2-ble-controller-control_ble)
-  - [Motor Simulator](#3-motor-simulator-simulator)
+- [Firmware](#firmware)
 - [Software Architecture](#software-architecture)
 - [Configuration](#configuration)
-- [BLE Interface](#ble-interface)
 - [Troubleshooting](#troubleshooting)
 
 ## Overview
 
-This project implements a production-ready PID controller for BLDC motors on the ESP32-C3 platform. It features hardware-accelerated PWM, interrupt-driven RPM sensing, real-time control loops, and optional wireless control via BLE.
+This project implements a fixed-target (1440 RPM) PID controller for BLDC
+motors on the ESP32-C3 platform. It uses hardware-accelerated PWM,
+interrupt-driven RPM sensing, and a real-time control loop. No wireless
+stack is used; the C3 is here for its 160MHz RISC-V core and hardware FPU.
 
 ### Key Features
 
 - **200Hz Control Loop**: High-frequency PID updates via dedicated FreeRTOS task
 - **Hardware-Accelerated PWM**: ESP32 LEDC peripheral generating smooth 5kHz motor control signals
 - **Interrupt-Driven RPM**: High-precision pulse counting using IRAM-resident ISR
-- **Sliding Window Filter**: Advanced RPM filtering for stable control input
-- **Soft-Start Logic**: 1.5-second power ramp prevents current spikes and mechanical stress
+- **Sliding Window Filter**: 12-sample window + IIR smoothing for stable control input
+- **ESC Arming + Soft-Start**: 2s zero-throttle arm, then 1.5s power ramp
 - **FPU Utilization**: Full floating-point PID calculations for maximum precision
-- **BLE Control** (optional): Wireless interface for start/stop and parameter adjustment
-- **Motor Simulator**: Virtual motor for safe testing and PID tuning
 
 ## Project Structure
 
 ```
 esp32-c3/
-├── control/              # Standard PID controller (always-on)
-│   ├── control.ino       # Main entry point and control loop
-│   ├── config.h          # Hardware pins and motor settings
-│   ├── config_common.h   # PID and control loop constants
-│   ├── ledc_driver.h     # ESP32 LEDC PWM driver
-│   ├── pcnt_driver.h     # Interrupt-based pulse counting
-│   ├── pid_common.h      # Floating-point PID algorithm
-│   └── rpm_common.h      # RPM filtering utilities
-│
-├── control_ble/          # BLE-enabled controller (start/stop control)
-│   ├── control_ble.ino   # Main entry with BLE callbacks
-│   ├── config.h          # Hardware configuration
-│   ├── config_common.h   # Shared PID constants
-│   ├── ledc_driver.h     # PWM driver
-│   ├── pcnt_driver.h     # Pulse counter
-│   ├── pid_common.h      # PID algorithm
-│   └── rpm_common.h      # RPM filter with sliding window
-│
-├── simulator/            # Virtual motor for testing
-│   └── simulator.ino     # Physics engine and signal generator
-│
+├── control/              # Fixed-target PID controller (1440 RPM, always-on)
+│   ├── control.ino       # Main entry point, FreeRTOS task, arming + soft-start
+│   ├── config.h          # Hardware pins and motor settings (PPR, trim, arm timing)
+│   ├── config_common.h   # PID gains and control loop constants
+│   ├── ledc_driver.h     # ESP32 LEDC PWM driver (5 kHz, 8-bit)
+│   ├── pcnt_driver.h     # Interrupt-based pulse counting (GPIO ISR)
+│   ├── pid_common.h      # Floating-point PID algorithm (dt-correct, PWM units)
+│   └── rpm_common.h      # RPM filtering (sliding window + IIR)
 └── README.md             # This documentation
 ```
 
 ## Quick Start
 
-### For Real Motor
-
-1. **Choose Firmware**: Use `control/` for always-on operation, or `control_ble/` for wireless control
-2. **Hardware Setup**: RPM on GPIO 0 (divider if 5V), ESC on GPIO 1; optional trim on GPIO 2/3
-3. **Configure**: Review `config.h` and `config_common.h` for motor-specific parameters
-4. **Upload**: Flash using Arduino IDE or PlatformIO
-5. **Monitor**: Open Serial Monitor at 115200 baud to verify startup
-
-### For Testing Without Motor
-
-1. **Flash Simulator**: Upload `simulator/simulator.ino` to a second ESP32-C3
-2. **Flash Controller**: Upload `control/control.ino` to the main ESP32-C3
-3. **Connect**: Wire GPIO 1 (controller) to GPIO 0 (simulator), and vice versa
-4. **Monitor**: Both boards will communicate as if a real motor is connected
+1. **Hardware Setup**: RPM on GPIO 0 (divider if 5V), ESC on GPIO 1; optional trim on GPIO 2/3
+2. **Configure**: Review `config.h` and `config_common.h` for motor-specific parameters
+3. **Upload**: Flash using Arduino IDE or PlatformIO
+4. **Monitor**: Open Serial Monitor at 115200 baud to verify startup
 
 ## Hardware Setup
 
 ### Required Components
 
-- **ESP32-C3 SuperMini** or any ESP32-C3 development board
-- **BLDC Motor** (e.g., 8-pole motor)
-- **Electronic Speed Controller (ESC)**
-- **Voltage Divider** (if Hall sensor outputs 5V)
+- **ESP32-C3 SuperMini** (or any ESP32-C3 dev board)
+- **JYQD-V7.3E3 BLDC driver board** (12–36V, ≤15A peak)
+- **42BLF-series BLDC motor** (8-pole, 24V; e.g. 42BLF01 4000 RPM)
+- **24V DC supply** for the motor (≥3A recommended)
+- **5V supply or USB** for the ESP32-C3 logic
+- **Resistors 2.2kΩ + 3.3kΩ** (Signal divider, see below)
+- Optional: **10kΩ potentiometer + jumper/switch** (gain trim)
 
-### Pin Connections
+### Tested combination
 
-| Component | ESP32-C3 Pin | Description |
-|-----------|--------------|-------------|
-| RPM Input | GPIO 0 | Pulse signal from motor Hall sensor |
-| PWM Output | GPIO 1 | PWM control signal to ESC |
-| Sensitivity pot | GPIO 2 (ADC) | Trimmer scales Kp, Ki, Kd together (target RPM stays 1440) |
-| Trim enable | GPIO 3 | Pull LOW to apply pot; HIGH = nominal gains from `config_common.h` |
-| Power | 5V / VIN | 5V power supply |
-| Ground | GND | Common ground |
+| Item | Spec |
+|------|------|
+| Driver | JYQD-V7.3E3, VR = PWM speed input (1–20 kHz range, we use 5 kHz) |
+| Motor | 42BLF, 8-pole → `PULSES_PER_REV 4`, 24V, 4000 RPM max |
+| Target | 1440 RPM ≈ 36% of max → operating PWM duty ≈ 25–35% |
+
+### Full wiring diagram
+
+Wire everything with **power OFF**. There are three separate
+sub-circuits: high-current motor side, Hall sensors, and logic.
+
+```
+                        ┌──────────────────────┐
+ Motor phases (thick)   │     JYQD-V7.3E3      │   Control port (logic)
+ MA ─────────────────── │                      │
+ MB ─────────────────── │     driver board     │   Signal ──[2.2k]──┬── GPIO 0 (ESP32-C3)
+ MC ─────────────────── │                      │                    └──[3.3k]── GND
+                        │                      │   VR ───────────────── GPIO 1
+ Hall connector         │                      │   GND ──────────────── GND (common!)
+ Ha ─────────────────── │                      │   Z/F ── NC (forward) / GND (reverse)
+ Hb ─────────────────── │                      │   EL ── NC (floating = run)
+ Hc ─────────────────── │                      │
+ 5V ─────────────────── │                      │   ESP32-C3 powered via USB
+ GND ────────────────── │                      │   (or 5V pin) — separate from 24V
+                        │                      │
+ P+ ◄── 24V+ (thick)    │                      │   Optional trim:
+ P- ◄── 24V- (thick)    │                      │   3V3──[10k pot]──GND, wiper→GPIO 2
+                        └──────────────────────┘   GPIO 3──[switch]──GND
+```
+
+### Wire-by-wire checklist
+
+**High current (use thick wire, keep short):**
+
+| From | To | Notes |
+|------|----|-------|
+| 24V supply + | JYQD `P+` | 12–36V motor bus |
+| 24V supply − | JYQD `P−` | Common with Hall GND inside board |
+| JYQD `MA` / `MB` / `MC` | Motor phases | Any order to start; if motor runs rough, swap two wires |
+
+**Hall sensors (5-wire connector):**
+
+| From | To | Notes |
+|------|----|-------|
+| JYQD `Ha` / `Hb` / `Hc` | Motor Hall outputs | Must match phase order |
+| JYQD `5V` | Motor Hall VCC | Powers the motor's Hall sensors |
+| JYQD `GND` | Motor Hall GND | |
+
+**Control port (logic, thin wire OK):**
+
+| JYQD pin | Connect to | Function |
+|----------|-----------|----------|
+| `VR` | ESP32 **GPIO 1** | PWM speed input. Firmware outputs 5 kHz, 0–255 duty |
+| `Signal` | ESP32 **GPIO 0** via divider (below) | Speed pulse output, 4 pulses/rev |
+| `GND` | ESP32 **GND** | ⚠️ Mandatory common ground |
+| `Z/F` | Leave floating (forward), or tie to GND for reverse | Direction select |
+| `EL` | Leave floating (= run) | Tie to GND to brake/stop (future: stall hard-cut) |
+
+**ESP32-C3 power:** USB cable, or 5V into the `5V` pin + GND.
+Never feed 24V into the ESP32. Never power the motor from the ESP32's 3V3 pin.
+
+### Signal divider (5V → 3.3V)
+
+The ESP32-C3 GPIOs are **NOT 5V tolerant**. The JYQD `Signal` pin
+swings up to 5V, so it MUST go through a divider before GPIO 0:
+
+```
+JYQD Signal ──[ R1: 2.2kΩ ]──┬── GPIO 0
+                             └──[ R2: 3.3kΩ ]── GND
+```
+
+Vout = 5V × 3.3 / (2.2 + 3.3) = **3.0V** (safe). If your board's
+`Signal` already measures ≤3.3V on a scope, you may connect directly.
+
+### VR logic-level note (3.3V vs 5V)
+
+The JYQD `VR` input is designed around 5V logic. In practice the
+ESP32-C3's 3.3V PWM usually drives it fine, but if you see any of
+these, add a level shifter (single N-MOSFET + pull-up, or a TXS0102):
+
+- Motor won't reach target RPM even at PWM 255
+- Speed is erratic at high duty, clean at low duty
+- `VR` high-level measures < 3V at the driver pin
+
+### Layout rules (from the driver datasheet)
+
+- Keep driver-to-motor wires **< 50 cm**; use **shielded cable**
+  beyond that, ground the shield at one end.
+- Route logic wiring (GPIO 0/1, GND) **away** from MA/MB/MC phase wires.
+- Add a **0.1µF ceramic capacitor** between GPIO 0 and GND, close to
+  the ESP32, if RPM readings are noisy.
+- Verify with a cold motor: phases and PCB should stay cool;
+  re-check MA/MB/MC + Ha/Hb/Hc order if the motor coggs or overheats.
 
 ### PID sensitivity trim (optional)
 
-Target speed remains `DEFAULT_TARGET_RPM` (1440). The pot only scales all three gains by the same factor so you can fine-tune stability and steady-state error on the bench or on a production PCB.
+Target speed remains `DEFAULT_TARGET_RPM` (1440). The pot only
+scales all three gains by the same factor so you can fine-tune
+stability and steady-state error on the bench or on a production PCB.
 
-Wire a 10K potentiometer to GPIO 2 and a jumper or switch on GPIO 3:
+Wire a 10K potentiometer wiper to GPIO 2 and a jumper/switch on GPIO 3:
 
 ```
 3.3V ----[ Pot 10K ]---- GND
               |
            GPIO 2 (wiper)
 
-GPIO 3 ----[ Switch ]---- GND   (closed = trim active; open = scale 1.0)
+GPIO 3 ----[ Switch ]---- GND   (closed = trim active; open = nominal gains)
 ```
 
-With trim active, the pot maps approximately 0.75x to 1.25x on `DEFAULT_KP`, `DEFAULT_KI`, and `DEFAULT_KD` (see `PID_SENSITIVITY_MIN` / `PID_SENSITIVITY_MAX` in `config.h`).
+With trim active, the pot maps ≈ 0.75x–1.25x on `DEFAULT_KP`,
+`DEFAULT_KI`, `DEFAULT_KD` (`PID_SENSITIVITY_MIN/MAX` in `config.h`).
+⚠️ GPIO 2 is a boot-strapping pin on the C3: if the board ever fails
+to boot with the pot connected, add a 1kΩ series resistor on the
+wiper line (or move the pot to GPIO 4 and update `config.h`).
 
-### Voltage Divider for 5V Hall Sensors
+### Power-up sequence
 
-The ESP32-C3 GPIOs are NOT 5V tolerant. If your Hall sensor outputs 5V, you MUST use a voltage divider:
+1. Wiring done, motor shaft free, USB serial open at 115200.
+2. Apply 24V motor supply, then USB (either order is safe; firmware
+   holds zero throttle for `ESC_ARM_DURATION_MS` = 2 s so the driver arms).
+3. Soft-start ramps power over `SOFT_START_DURATION_MS` = 1.5 s.
+4. PID takes over and holds **1440 RPM**. Expect `pwm ≈ 65–90`
+   (duty ≈ 25–35%) at steady state on 24V.
 
-```
-5V Hall Signal ----[ R1: 2.2kΩ ]---- GPIO 0
-                             |
-                             +----[ R2: 3.3kΩ ]---- GND
-```
+## Firmware
 
-**Calculation**: Vout = 5V × (3.3kΩ / (2.2kΩ + 3.3kΩ)) = 3V (safe for ESP32)
-
-If your sensor already outputs 3.3V logic, connect directly to GPIO 0.
-
-## Firmware Variants
-
-### 1. Standard Controller (`control/`)
-
-**Use Case**: Production environments requiring continuous motor control without external intervention.
-
-**Behavior**:
-- Motor control starts immediately on power-up
-- No start/stop commands needed
-- Minimal overhead, maximum performance
-
-**Features**:
-- 200Hz PID control loop
-- Hardware PWM output (5kHz)
-- Interrupt-driven RPM sensing
-- Sliding window filter for stable RPM readings
-- Soft-start ramp (1.5s)
+`control/` is the single production firmware: always-on fixed-target
+control. On power-up it holds zero throttle for `ESC_ARM_DURATION_MS`
+(so the ESC arms), ramps via soft-start over `SOFT_START_DURATION_MS`,
+then the PID loop holds 1440 RPM. No start/stop commands, no wireless.
 
 **Upload**: Flash `control/control.ino`
-
-### 2. BLE Controller (`control_ble/`)
-
-**Use Case**: Applications requiring wireless control, remote monitoring, or dynamic parameter adjustment.
-
-**Behavior**:
-- Motor control via BLE commands (start/stop)
-- Real-time status updates every 500ms
-- Thread-safe shared state with spinlock protection
-
-**Additional Features**:
-- All features from standard controller
-- BLE interface (no WiFi interference)
-- Remote RPM target adjustment
-- JSON status notifications
-
-**Upload**: Flash `control_ble/control_ble.ino`
-
-### 3. Motor Simulator (`simulator/`)
-
-**Use Case**: Safe PID tuning and testing without real motor hardware.
-
-**Behavior**:
-- Receives PWM input from controller
-- Simulates motor physics (inertia, acceleration)
-- Outputs RPM pulses back to controller
-
-**Features**:
-- Configurable max RPM and inertia
-- Optional noise injection for filter testing
-- Safe bench testing environment
-- Serial debug output
-
-**Hardware**: Requires two ESP32-C3 boards connected GPIO-to-GPIO
-
-**Upload**: Flash `simulator/simulator.ino` to second board
 
 ## Software Architecture
 
@@ -190,31 +207,26 @@ If your sensor already outputs 3.3V logic, connect directly to GPIO 0.
 The controller runs in a dedicated FreeRTOS task with highest priority (`configMAX_PRIORITIES - 1`), ensuring strict 5ms (200Hz) timing regardless of other system activities.
 
 ```
-┌─────────────────────────────────────┐
-│   Main Loop (Low Priority)          │
-│   - Serial communication             │
-│   - BLE status updates (if enabled)  │
-└─────────────────────────────────────┘
-           ↓ (yields CPU)
-┌─────────────────────────────────────┐
-│   Control Task (Highest Priority)   │
-│   ┌─────────────────────────────┐   │
-│   │ 1. Sensitivity scale (pot)  │   │
-│   │ 2. Read RPM (pcnt_driver)   │   │
-│   │ 3. Filter RPM (sliding win) │   │
-│   │ 4. Compute PID               │   │
-│   │ 5. Map to PWM                │   │
-│   │ 6. Apply Soft-Start          │   │
-│   │ 7. Output PWM (ledc_driver)  │   │
-│   └─────────────────────────────┘   │
-│   vTaskDelayUntil(5ms)               │
-└─────────────────────────────────────┘
-```
+//   Main Loop (Low Priority)
+//   - Serial heartbeat (1 Hz status print)
+//   - Yields to the control task
+//            ↓ (yields CPU)
+//   Control Task (Highest Priority)
+//   ┌─────────────────────────────┐
+//   │ 1. Sensitivity scale (pot)  │
+//   │ 2. Read RPM (pcnt_driver)   │
+//   │ 3. Filter RPM (sliding win) │
+//   │ 4. Compute PID (PWM units)  │
+//   │ 5. Apply Soft-Start         │
+//   │ 6. Output PWM (ledc_driver) │
+//   └─────────────────────────────┘
+//   vTaskDelayUntil(5ms)
+// ```
 
 ### Core Drivers
 
 **`pcnt_driver.h`**
-- Interrupt-driven pulse counting (ESP32-C3 has no hardware PCNT)
+- Interrupt-driven pulse counting via GPIO ISR (no PCNT peripheral dependency)
 - Minimum integration window (40ms default) for low quantization noise
 - At 1440 RPM @ 4 PPR: ~4 pulses per sample vs ~0.5 with 5ms window
 
@@ -224,12 +236,12 @@ The controller runs in a dedicated FreeRTOS task with highest priority (`configM
 - Direct hardware output, no software overhead
 
 **`pid_common.h`**
-- Floating-point PID implementation
-- Anti-windup with integral clamping
-- Low-pass filtered derivative to reduce noise amplification
+- Floating-point PID, dt-correct, output directly in PWM counts (0-255)
+- Anti-windup with integral clamping (0-255)
+- Derivative on measurement (no setpoint kick), low-pass filtered
 
 **`rpm_common.h`**
-- Sliding window (24 samples) with IIR smoothing
+- Sliding window (12 samples) with IIR smoothing
 - Decoupled from control period for stable averaging
 - Real-time filtering with low latency
 
@@ -257,10 +269,10 @@ The controller runs in a dedicated FreeRTOS task with highest priority (`configM
 ### PID Tuning (`config_common.h`)
 
 ```cpp
-#define DEFAULT_TARGET_RPM 1440.0  // Target speed
-#define DEFAULT_KP         0.150   // Proportional gain
-#define DEFAULT_KI         0.080   // Integral gain
-#define DEFAULT_KD         0.015   // Derivative gain
+#define DEFAULT_TARGET_RPM 1440.0  // Target speed (fixed)
+#define DEFAULT_KP         0.150   // PWM per RPM of error
+#define DEFAULT_KI         0.120   // PWM per (RPM*s) integrated
+#define DEFAULT_KD         0.004   // PWM per (RPM/s) of speed slope
 ```
 
 **Tuning Guidelines**:
@@ -284,61 +296,6 @@ The controller runs in a dedicated FreeRTOS task with highest priority (`configM
 #define PWM_MAX_VALUE       255    // 100% throttle
 ```
 
-## BLE Interface
-
-**Available in**: `control_ble/` only
-
-### Connection Details
-
-- **Device Name**: `BLDC-PID`
-- **Service UUID**: `4fafc201-1fb5-459e-8fcc-c5c9c331914b`
-
-### Characteristics
-
-| Name | UUID | Type | Description |
-|------|------|------|-------------|
-| Status | `beb5483e-36e1-4688-b7f5-ea07361b26a8` | Read/Notify | JSON status: `{"run":1,"rpm":1440,"target":1440,"pwm":128,"sens":1.000}` (`sens` = PID gain scale from trim pot) |
-| Control | `beb5483e-36e1-4688-b7f5-ea07361b26a9` | Write | Commands: `"start"` or `"stop"` |
-| Target | `beb5483e-36e1-4688-b7f5-ea07361b26aa` | Read/Write | Set target RPM: `"1800"` |
-
-### Mobile Control (nRF Connect / LightBlue)
-
-1. Install nRF Connect (Android) or LightBlue (iOS)
-2. Scan for `BLDC-PID` device
-3. Connect to device
-4. Navigate to service `4fafc201-...`
-5. Enable notifications on Status characteristic
-6. Write `start` to Control characteristic
-7. Write `1800` to Target characteristic to set 1800 RPM
-8. Write `stop` to Control characteristic to stop
-
-### Python Control (bleak)
-
-```python
-import asyncio
-from bleak import BleakClient, BleakScanner
-
-DEVICE_NAME = "BLDC-PID"
-CONTROL_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a9"
-TARGET_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26aa"
-STATUS_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8"
-
-async def control_motor():
-    device = await BleakScanner.find_device_by_name(DEVICE_NAME)
-
-    async with BleakClient(device) as client:
-        await client.write_gatt_char(CONTROL_UUID, b"start")
-        await client.write_gatt_char(TARGET_UUID, b"1800")
-
-        status = await client.read_gatt_char(STATUS_UUID)
-        print(f"Status: {status.decode()}")
-
-        await asyncio.sleep(10)
-        await client.write_gatt_char(CONTROL_UUID, b"stop")
-
-asyncio.run(control_motor())
-```
-
 ## Troubleshooting
 
 ### No RPM Signal
@@ -359,7 +316,7 @@ asyncio.run(control_motor())
 **Solutions**:
 - Increase `PWM_MIN_THRESHOLD` in `config_common.h` (try 60-80)
 - Extend `SOFT_START_DURATION_MS` to 2000-3000ms
-- Check ESC calibration (some ESCs need throttle range calibration)
+- Check driver state: JYQD needs the 2 s zero-throttle arm window — don't touch wiring mid-boot
 - Verify power supply can handle startup current
 
 ### Unstable Speed / Oscillation
@@ -372,17 +329,6 @@ asyncio.run(control_motor())
 - Reduce `DEFAULT_KI` if slow oscillation with overshoot
 - Check for electrical noise on RPM input (add 0.1µF capacitor near GPIO 0)
 - Verify stable power supply (voltage drops cause instability)
-
-### BLE Connection Issues
-
-**Symptoms**: Cannot find device or connection drops
-
-**Solutions**:
-- Ensure BLE is enabled on mobile device
-- Move closer to ESP32 (BLE range is limited)
-- Restart ESP32 if device name doesn't appear
-- Check Serial Monitor for BLE initialization errors
-- Some phones limit simultaneous BLE connections (disconnect other devices)
 
 ### Incorrect RPM Reading
 
@@ -424,15 +370,12 @@ The FreeRTOS task scheduler guarantees 5ms ±1µs control loop timing under norm
 
 ### Memory Usage
 
-- Standard controller: ~30KB flash, ~4KB RAM
-- BLE controller: ~580KB flash, ~35KB RAM (BLE stack overhead)
-- Simulator: ~25KB flash, ~3KB RAM
+- Firmware: ~302KB flash (23%), ~14.7KB RAM (measured Arduino build, includes core + FreeRTOS)
 
 ### Power Consumption
 
 - Idle (no motor): ~40mA @ 3.3V
 - Active control: ~60mA @ 3.3V
-- BLE active: ~80mA @ 3.3V (advertising + notifications)
 
 ## Safety Considerations
 
@@ -440,7 +383,7 @@ The FreeRTOS task scheduler guarantees 5ms ±1µs control loop timing under norm
 2. **Power Supply**: Ensure adequate current capacity for ESP32 and ESC
 3. **Thermal**: Monitor ESC temperature during extended high-speed operation
 4. **Emergency Stop**: Keep power disconnection easily accessible
-5. **Testing**: Use simulator before connecting real motor
+5. **Testing**: Start with the motor unloaded and verify RPM on Serial before applying load
 
 ## License
 
