@@ -13,6 +13,8 @@ for compute (no WiFi, no BLE). Holds 1440 RPM via a 200Hz FreeRTOS loop.
 - [Software Architecture](#software-architecture)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
+- [Builds](BUILDS.md) — production vs bench firmware, and how they share code
+- [Diagnostics Guide](DIAGNOSTICS.md) — serial console commands and fault isolation
 
 ## Overview
 
@@ -34,18 +36,38 @@ stack is used; the C3 is here for its 160MHz RISC-V core and hardware FPU.
 
 ```
 esp32-c3/
-├── control/              # Fixed-target PID controller (1440 RPM, always-on)
-│   ├── control.ino       # Main entry point, FreeRTOS task, arming + soft-start
-│   ├── config.h          # Hardware pins and motor settings (PPR, trim, arm timing)
-│   ├── config_common.h   # PID gains and control loop constants
-│   ├── ledc_driver.h     # ESP32 LEDC PWM driver (5 kHz, 8-bit)
-│   ├── pcnt_driver.h     # Interrupt-based pulse counting (GPIO ISR)
-│   ├── pid_common.h      # Floating-point PID algorithm (dt-correct, PWM units)
-│   └── rpm_common.h      # RPM filtering (sliding window + IIR)
-└── README.md             # This documentation
+├── embedded/              # PRODUCTION build: silent, autonomous, for the enclosure
+│   ├── embedded.ino       # Control loop, arming, soft-start, stall failsafe
+│   ├── config.h           # Pins, motor, PPR, arming and failsafe timing
+│   └── config_common.h    # Tuned gains + ENABLE_SERIAL_LOG flag
+├── control/               # BENCH build: serial console for bring-up and service
+│   ├── control.ino        # Main entry point + mode state machine
+│   ├── console.h          # Command parser, telemetry, diagnostics
+│   ├── control_state.h    # Shared state between control task and console
+│   ├── trial_log.h        # Auto-scores each power cycle to rank Hall permutations
+│   ├── config.h           # Hardware pins and motor settings
+│   ├── config_common.h    # PID gains and control loop constants
+│   ├── ledc_driver.h      # ESP32 LEDC PWM driver (5 kHz, 8-bit)     [shared]
+│   ├── pcnt_driver.h      # Interval-based RPM measurement + GPIO ISR [shared]
+│   ├── pid_common.h       # Floating-point PID, dt-correct            [shared]
+│   └── rpm_common.h       # Sliding window + IIR RPM filter           [shared]
+├── BUILDS.md              # Which build to use, and how they share code
+├── DIAGNOSTICS.md         # Console reference and fault isolation
+└── README.md              # This documentation
 ```
 
+The four `[shared]` headers are included by `embedded/embedded.ino` via
+`../control/`, so there is exactly one implementation of the RPM estimator, the
+PID and the LEDC setup. Change them in `control/` only.
+
 ## Quick Start
+
+> ⚠️ **Two things that will waste an afternoon if you skip them.** The Hall line
+> sequence on the driver may not match your motor — transposition of two Hall
+> lines took this project from 570 RPM with heavy jitter to stable closed-loop
+> operation. And the ESP32 must **not** be powered from the driver's 5V output;
+> the datasheet forbids it and the 3.3V rail sags badly enough to cause visible
+> jitter whenever USB is absent. See [DIAGNOSTICS.md](DIAGNOSTICS.md).
 
 1. **Hardware Setup**: RPM on GPIO 0 (divider if 5V), ESC on GPIO 1; optional trim on GPIO 2/3
 2. **Configure**: Review `config.h` and `config_common.h` for motor-specific parameters

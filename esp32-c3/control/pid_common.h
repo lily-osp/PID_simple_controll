@@ -18,9 +18,9 @@
 // never causes derivative kick. Setpoint is constant, so d(error)/dt
 // equals -d(meas)/dt anyway, minus the kick.
 inline float computePID_float(float error, float measurement, float &integral,
-                              float &prevMeasurement, float &filteredDerivative, float kp,
-                              float ki, float kd, float dt, float integral_min,
-                              float integral_max, float output_min, float output_max) {
+                              float &prevMeasurement, float &filteredDerivative, float kp, float ki,
+                              float kd, float dt, float integral_min, float integral_max,
+                              float output_min, float output_max) {
     float proportional = kp * error;
 
     integral += ki * error * dt;

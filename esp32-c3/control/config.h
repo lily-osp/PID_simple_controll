@@ -12,9 +12,24 @@
 #define PID_SENSITIVITY_MAX 1.25f
 
 // Motor Configuration
-#define PULSES_PER_REV 4 // 8-pole BLDC motor (4 pulses per rev)
+//
+// Pulses per revolution of the JYQD Signal output, derived from the motor
+// datasheet (docs/motor_specification/):
+//   42BLF: 8 poles = 4 pole pairs, 3-phase, Hall effect angle 120 deg electrical.
+//
+// The driver XORs Ha/Hb/Hc together into one square wave. XOR of three 120 deg
+// halls alternates across all six valid states, so the output completes 3 full
+// cycles per electrical revolution. With 4 pole pairs that is 4 x 3 = 12 cycles
+// per mechanical revolution, i.e. 12 signal periods per turn.
+//
+//   PPR = 3 x pole_pairs = 3 x (poles / 2)
+//
+// The previous value of 4 was wrong and inflated every RPM reading by 25%.
+#define PULSES_PER_REV 12
 
-// RPM measurement: min integration window (us). 40ms = ~4 pulses @ 1440 RPM.
+// RPM measurement: min integration window (us). 40ms captures ~12 pulses at
+// 1500 RPM with PPR 12, which keeps quantization noise low without adding
+// enough lag to hurt PID stability.
 #define RPM_SAMPLE_MIN_US 40000
 
 // Soft-Start
