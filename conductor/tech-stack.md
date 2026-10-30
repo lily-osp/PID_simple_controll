@@ -2,37 +2,37 @@
 
 ## Overview
 
-Brownfield embedded product. **Primary targets: ATtiny85 (minimal form factor) and ESP32-C3 (small form factor + maximum stability).** Arduino Uno is **PoC/code validation only** — used to prove PID logic and tune constants, not deployed.
+Brownfield embedded product. **Single target: ESP32-C3** (small form factor + maximum stability), deployed on the custom driver PCB. Former Arduino Uno / ATtiny85 variants were removed on 2026-10-31 and are preserved on the `archive/all-variants` branch.
 
 ## Languages
 
-- **C/C++ (Arduino Wiring):** All firmware in `.ino` + shared `.h` modules (`pid_common.h`, `rpm_common.h`, `isr_common.h`, `config_common.h`, `config.h`). Arduino IDE compatible, PlatformIO compatible.
+- **C/C++ (Arduino Wiring):** All firmware in `.ino` + shared `.h` modules (`pid_common.h`, `rpm_common.h`, `config_common.h`, `config.h`). Arduino IDE compatible, PlatformIO compatible.
 
 ## Microcontrollers & Hardware
 
 | Target | MCU | Clock | Role | Form Factor |
 |--------|-----|-------|------|-------------|
-| ATtiny85 v1/v2/v3 | ATtiny85 (AVR 8-bit) | 16 MHz PLL internal | **Production — minimal size** | 8-pin DIP/SOIC, ~1 cm², 8–10 mA |
-| ESP32-C3 control / control_ble / simulator | ESP32-C3 (RISC-V 32-bit, FPU) | 160 MHz | **Production — small + stable** | Module ~18×20 mm, ~60–80 mA |
-| Arduino Uno | ATmega328P | 16 MHz | **PoC only** | Board 68×53 mm, ~50 mA — not for deployment |
+| ESP32-C3 `control/` (bench) | ESP32-C3 (RISC-V 32-bit, FPU) | 160 MHz | **Bring-up / service** (serial console, telemetry) | Module ~18×20 mm, ~60 mA |
+| ESP32-C3 `embedded/` (production) | ESP32-C3 (RISC-V 32-bit, FPU) | 160 MHz | **Production — enclosure** (silent, autonomous, stall failsafe) | Module ~18×20 mm, ~60 mA |
 
-- **Motor HW:** 3-phase BLDC + single Hall sensor + ESC (PWM in). Hall → PB3 (ATtiny) / GPIO ISR (ESP32-C3) with `micros()` / Timer1 capture / PCNT; PWM → PB0 / LEDC 5 kHz. 5 V Hall requires 2.2 kΩ/3.3 kΩ divider for ESP32-C3 3.3 V inputs.
+- **Motor HW:** 3-phase BLDC + single Hall sensor + driver (PWM in). Hall → GPIO ISR (ESP32-C3) via PCNT/interval measurement; PWM → LEDC 5 kHz. 5 V Hall requires 2.2 kΩ/3.3 kΩ divider for ESP32-C3 3.3 V inputs.
+- **Driver PCB:** `PCB/bldc_esp32_driver/` — full-integration 70 × 120 mm board (JYQD-V7.3E3 architecture: JY01 + JY213L + JY2605M, ESP32-C3 Super Mini onboard, Hall amp RC → LM324 ×11 → 74HC14).
 
 ## Frameworks & Libraries
 
-- **Arduino Core:** `arduino:avr` (Uno), `attiny:avr` Damellis (ATtinyX5, `cpu=attiny85,clock=internal16`), `esp32:esp32` Espressif (ESP32-C3).
-- **ESP32-C3 specifics:** FreeRTOS (200 Hz PID task, highest priority), LEDC hardware PWM, IRAM-resident ISR, sliding-window filter, NimBLE/BLE for `control_ble` (JSON status 500 ms, spinlock shared state).
-- **Common filtering:** EMA / median+EMA / moving-average / sliding-window per variant.
+- **Arduino Core:** `esp32:esp32` Espressif (ESP32-C3, `nologo_esp32c3_super_mini`).
+- **ESP32-C3 specifics:** FreeRTOS (200 Hz PID task, highest priority), LEDC hardware PWM, IRAM-resident ISR, sliding-window + IIR filter. No wireless stack — the C3 is used bare-metal for compute.
+- **Shared drivers:** `pcnt_driver.h`, `pid_common.h`, `rpm_common.h`, `ledc_driver.h` live in `control/` and are included by `embedded/` via `../control/` (one implementation).
 
 ## Build & Tooling
 
-- **Build:** `arduino-cli compile --fqbn <target>` per variant (`arduino:avr:uno`, `attiny:avr:ATtinyX5:cpu=attiny85,clock=internal16`, `esp32:esp32:esp32c3:CDCOnBoot=default`). Helpers: `attiny85/build_all.sh`, `compile_test.sh`, `flash.sh` (Arduino-as-ISP, 10 µF reset cap).
-- **Artifacts:** `compiled/` hex + `DDMMYYYY_<repo>.zip` release.
-- **PCB:** KiCad (`PCB/cameflex/cameflex.kicad_*`, `fp-info-cache`); Cameflex board is deployment carrier for ATtiny/ESP32-C3.
+- **Build:** `arduino-cli compile -b esp32:esp32:nologo_esp32c3_super_mini esp32-c3/control` (bench) / `esp32-c3/embedded` (production).
+- **Artifacts:** `compiled/` binaries + `DDMMYYYY_<repo>.zip` release.
+- **PCB:** KiCad (`PCB/bldc_esp32_driver/bldc_esp32_driver.kicad_*`, custom footprints, `tools/gen_sch_full.py` / `gen_pcb.py` / `verify_net.py`).
 
 ## CI/CD
 
-- **GitHub Actions** `.github/workflows/compile.yml`: `setup-arduino-cli@v1` → `config add board_manager.additional_urls` (Damellis + Espressif) → `core install avr/attiny/esp32` → compile Uno + ATtiny v1/v2/v3 + ESP32-C3 control → list artifacts → memory usage check → ZIP + auto-release (retry on 502).
+- **GitHub Actions** `.github/workflows/compile.yml`: `setup-arduino-cli@v1` → Espressif board index → `core install esp32:esp32` → compile `control` + `embedded` → list artifacts → memory usage check → ZIP + auto-release (retry on 502).
 - **Triggers:** pushes to `main`/`master`, tags `v*.*.*`, PRs.
 
 ## Quality & Style
@@ -42,6 +42,6 @@ Brownfield embedded product. **Primary targets: ATtiny85 (minimal form factor) a
 
 ## Design Priorities
 
-1. **Small form factor first** — ATtiny85 and ESP32-C3 modules only.
-2. **Stability at 1440 RPM** — 200 Hz deterministic loop (ESP32-C3) + watchdog/stall failsafe; Uno is reference for tuning, not stability benchmark.
-3. **Portability of PID constants** — Uno-tuned `DEFAULT_KP/KI/KD` copies to ATtiny/ESP32 with minimal re-tune.
+1. **Small form factor first** — ESP32-C3 Super Mini on the custom driver PCB.
+2. **Stability at 1440 RPM** — 200 Hz deterministic loop + arming/soft-start/stall failsafe.
+3. **One shared implementation** — drivers and control maths live in `control/` only; `embedded/` consumes them unchanged.
