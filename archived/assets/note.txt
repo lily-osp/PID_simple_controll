@@ -1,6 +1,0 @@
-blcd controller : https://indonesian.bldcmotordrivers.com/sale-37260738-12v-36v-pwm-speed-control-electric-motor-drive-board-for-bldc-motor-hub-motor.html
-bldc motor : 42BLF20-22.0223
-
-controller :
-    - development : arduino uno
-    - production : attiny85

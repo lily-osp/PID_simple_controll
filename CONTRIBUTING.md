@@ -49,8 +49,7 @@ There are several ways you can contribute to this project:
 ### Prerequisites
 
 - **Arduino IDE** (version 1.8.19 or later) or **Arduino CLI**
-- **ATTinyCore** for Arduino IDE (for ATtiny85 development)
-- **AVR-GCC** toolchain (if using command line)
+- **ESP32 board support** for Arduino (arduino-esp32 core)
 - **Git** for version control
 
 ### Environment Setup
@@ -63,11 +62,11 @@ There are several ways you can contribute to this project:
    # Or download from https://www.arduino.cc/en/software
    ```
 
-2. **Install ATTinyCore:**
+2. **Install ESP32 board support:**
    - Open Arduino IDE
    - Go to File → Preferences → Additional Boards Manager URLs
-   - Add: `https://raw.githubusercontent.com/damellis/attiny/ide-1.6.x-boards-manager/package_damellis_attiny_index.json`
-   - Tools → Board → Boards Manager → Search for "attiny" → Install
+   - Add: `https://espressif.github.io/arduino-esp32/package_esp32_index.json`
+   - Tools → Board → Boards Manager → Search for "esp32" → Install
 
 3. **Using Arduino CLI:**
    ```bash
@@ -75,22 +74,19 @@ There are several ways you can contribute to this project:
    curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
 
    # Install cores
-   arduino-cli core install arduino:avr
-   arduino-cli core install attiny:avr
+   arduino-cli core install esp32:esp32
    ```
 
 ### Building the Project
 
-#### Arduino Uno Version
+#### ESP32-C3 Bench Build
 ```bash
-cd arduino_uno
-arduino-cli compile --fqbn arduino:avr:uno arduino_uno.ino
+arduino-cli compile -b esp32:esp32:nologo_esp32c3_super_mini esp32-c3/control
 ```
 
-#### ATtiny85 Version
+#### ESP32-C3 Production Build
 ```bash
-cd attiny85
-arduino-cli compile --fqbn attiny:avr:ATtinyX5:cpu=attiny85,clock=internal8 attiny85.ino
+arduino-cli compile -b esp32:esp32:nologo_esp32c3_super_mini esp32-c3/embedded
 ```
 
 ## Coding Standards
@@ -150,10 +146,8 @@ pinMode(RPM_SENSOR_PIN, INPUT_PULLUP);
 ```
 
 #### Memory Management
-- Be mindful of limited RAM (2KB on Arduino Uno, 512B on ATtiny85)
 - Avoid large global arrays
-- Use PROGMEM for large constant data
-- Minimize string usage in loops
+- Minimize string usage in loops (especially inside the control task)
 
 #### Interrupt Service Routines (ISRs)
 - Keep ISRs short and fast
@@ -164,23 +158,17 @@ pinMode(RPM_SENSOR_PIN, INPUT_PULLUP);
 ### File Organization
 
 ```
-BLDC_PID_Controller/
-├── arduino_uno/                 # Arduino Uno implementation
-│   ├── arduino_uno.ino         # Main sketch
-│   ├── hardware_schematic.md   # Hardware setup
+PID_simple_controll/
+├── esp32-c3/                    # ESP32-C3 implementation
+│   ├── control/                # Bench build (serial console)
+│   ├── embedded/               # Production build (enclosure)
+│   ├── BUILDS.md               # Which build to use
+│   ├── DIAGNOSTICS.md          # Console reference and fault isolation
 │   └── README.md               # Implementation details
-├── attiny85/                   # ATtiny85 implementation
-│   ├── attiny85.ino           # Main sketch
-│   ├── ATTiny85_hardware_schematic.md
-│   └── README.md
-├── assets/
-│   ├── 42BLF.pdf              # Motor datasheet
-│   ├── High-level component diagram.png  # System diagrams
-│   ├── Main control flow.png
-│   └── Serial command sequence.png
-├── CONTRIBUTING.md            # This file
-├── README.md                  # Project overview
-└── LICENSE                    # License information
+├── docs/                        # Guides (howto, troubleshooting, motor specs)
+├── CONTRIBUTING.md             # This file
+├── README.md                   # Project overview
+└── LICENSE                     # License information
 ```
 
 ## Testing
@@ -224,9 +212,9 @@ BLDC_PID_Controller/
 
 ### Automated Testing
 ```bash
-# Compile both versions
-arduino-cli compile --fqbn arduino:avr:uno arduino_uno/arduino_uno.ino
-arduino-cli compile --fqbn attiny:avr:ATtinyX5:cpu=attiny85,clock=internal8 attiny85/attiny85.ino
+# Compile both builds
+arduino-cli compile -b esp32:esp32:nologo_esp32c3_super_mini esp32-c3/control
+arduino-cli compile -b esp32:esp32:nologo_esp32c3_super_mini esp32-c3/embedded
 
 # Check for compilation errors
 echo "Compilation successful!"
@@ -299,9 +287,9 @@ When reporting bugs, please include:
 2. **Steps to reproduce** the problem
 3. **Expected behavior** vs actual behavior
 4. **Environment details**:
-   - Arduino board type and version
+   - ESP32-C3 board and build used (`control/` or `embedded/`)
    - Motor and ESC model
-   - Arduino IDE version
+   - Arduino IDE / arduino-cli version
    - Operating system
 5. **Code snippets** if relevant
 6. **Serial output** or error messages
@@ -339,8 +327,9 @@ Use the following templates when creating issues:
 [What actually happens]
 
 **Environment:**
-- Board: [Arduino Uno/ATtiny85]
-- IDE Version: [1.8.x]
+- Board: [ESP32-C3 SuperMini]
+- Build: [control/embedded]
+- IDE Version: [1.8.x / 2.x / arduino-cli]
 - OS: [Ubuntu 20.04/Windows 10]
 
 **Additional Context:**
@@ -359,10 +348,11 @@ Use the following templates when creating issues:
 ### Documentation Files
 
 - `README.md`: Project overview and getting started
-- `arduino_uno/README.md`: Arduino Uno implementation details
-- `attiny85/README.md`: ATtiny85 implementation details
-- `arduino_uno/hardware_schematic.md`: Hardware setup guide
-- `attiny85/ATTiny85_hardware_schematic.md`: ATtiny85 hardware guide
+- `esp32-c3/README.md`: ESP32-C3 implementation details
+- `esp32-c3/BUILDS.md`: Which build to use, and how they share code
+- `esp32-c3/DIAGNOSTICS.md`: Serial console commands and fault isolation
+- `docs/howto.md`: Hardware assembly and setup guide
+- `docs/mitigation.md`: Troubleshooting guide
 - `CONTRIBUTING.md`: This file
 
 ### Updating Documentation

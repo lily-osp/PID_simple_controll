@@ -27,86 +27,42 @@ jobs:
         arduino-cli config init --overwrite
 
         # Add Board Manager URLs
-        # Switching back to Damellis core because Spence Konde's servers (azduino.com) are unreliable in CI
-        arduino-cli config add board_manager.additional_urls https://raw.githubusercontent.com/damellis/attiny/ide-1.6.x-boards-manager/package_damellis_attiny_index.json
         arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
 
         # Update index
         arduino-cli core update-index
-
-    - name: Install AVR Core
-      run: |
-        arduino-cli core install arduino:avr
-
-    - name: Install ATTiny Core (Damellis)
-      run: |
-        echo "Installing ATTiny Core (Damellis)..."
-        # Installing 'attiny:avr' (Damellis) instead of 'ATTinyCore:avr' (Spence Konde)
-        arduino-cli core install attiny:avr
 
     - name: Install ESP32 Core
       run: |
         echo "Installing ESP32 Core..."
         arduino-cli core install esp32:esp32
 
-    - name: Compile Arduino Uno sketch
-      run: |
-        cd arduino_uno
-        arduino-cli compile --fqbn arduino:avr:uno arduino_uno.ino --output-dir compiled/
-
-    - name: Compile ATtiny85 v1 (Production Logic Port)
-      run: |
-        cd attiny85/v1
-        # FQBN for Damellis: attiny:avr:ATtinyX5
-        # Options: cpu=attiny85, clock=internal16 (16MHz PLL)
-        # Note: 'internal16' is the correct key for Damellis core for 16MHz PLL
-        arduino-cli compile --fqbn attiny:avr:ATtinyX5:cpu=attiny85,clock=internal16 v1.ino --output-dir compiled/
-
-    - name: Compile ATtiny85 v2 (Advanced Timer)
-      run: |
-        cd attiny85/v2
-        arduino-cli compile --fqbn attiny:avr:ATtinyX5:cpu=attiny85,clock=internal16 v2.ino --output-dir compiled/
-
-    - name: Compile ATtiny85 v3 (Failsafe)
-      run: |
-        cd attiny85/v3
-        arduino-cli compile --fqbn attiny:avr:ATtinyX5:cpu=attiny85,clock=internal16 v3.ino --output-dir compiled/
-
-    - name: Compile ESP32-C3 Control
+    - name: Compile ESP32-C3 Control (bench)
       run: |
         cd esp32-c3/control
-        arduino-cli compile --fqbn esp32:esp32:esp32c3:CDCOnBoot=default control.ino --output-dir compiled/
+        arduino-cli compile --fqbn esp32:esp32:nologo_esp32c3_super_mini control.ino --output-dir compiled/
+
+    - name: Compile ESP32-C3 Embedded (production)
+      run: |
+        cd esp32-c3/embedded
+        arduino-cli compile --fqbn esp32:esp32:nologo_esp32c3_super_mini embedded.ino --output-dir compiled/
 
     - name: List compiled files
       run: |
-        echo "Arduino Uno compiled files:"
-        ls -la arduino_uno/compiled/
-        echo -e "\nATtiny85 v1 compiled files:"
-        ls -la attiny85/v1/compiled/
-        echo -e "\nATtiny85 v2 compiled files:"
-        ls -la attiny85/v2/compiled/
-        echo -e "\nATtiny85 v3 compiled files:"
-        ls -la attiny85/v3/compiled/
-        echo -e "\nESP32-C3 compiled files:"
+        echo "ESP32-C3 control compiled files:"
         ls -la esp32-c3/control/compiled/
+        echo -e "\nESP32-C3 embedded compiled files:"
+        ls -la esp32-c3/embedded/compiled/
 
     - name: Check memory usage
       run: |
-        echo "Arduino Uno compilation results:"
-        cd arduino_uno
-        arduino-cli compile --fqbn arduino:avr:uno arduino_uno.ino 2>/dev/null | grep -E "(bytes|Maximum|Global variables)"
+        echo "ESP32-C3 control compilation results:"
+        cd esp32-c3/control
+        arduino-cli compile --fqbn esp32:esp32:nologo_esp32c3_super_mini control.ino 2>/dev/null | grep -E "(bytes|Maximum|Global variables)"
 
-        echo -e "\nATtiny85 v1 compilation results:"
-        cd ../attiny85/v1
-        arduino-cli compile --fqbn attiny:avr:ATtinyX5:cpu=attiny85,clock=internal16 v1.ino 2>/dev/null | grep -E "(bytes|Maximum|Global variables)"
-
-        echo -e "\nATtiny85 v2 compilation results:"
-        cd ../../attiny85/v2
-        arduino-cli compile --fqbn attiny:avr:ATtinyX5:cpu=attiny85,clock=internal16 v2.ino 2>/dev/null | grep -E "(bytes|Maximum|Global variables)"
-
-        echo -e "\nATtiny85 v3 compilation results:"
-        cd ../v3
-        arduino-cli compile --fqbn attiny:avr:ATtinyX5:cpu=attiny85,clock=internal16 v3.ino 2>/dev/null | grep -E "(bytes|Maximum|Global variables)"
+        echo -e "\nESP32-C3 embedded compilation results:"
+        cd ../embedded
+        arduino-cli compile --fqbn esp32:esp32:nologo_esp32c3_super_mini embedded.ino 2>/dev/null | grep -E "(bytes|Maximum|Global variables)"
 
     - name: Get current date
       id: date
@@ -179,19 +135,14 @@ jobs:
           This release was automatically created by the CI/CD pipeline.
 
           ## Package Contents
-          - **Source Code**: All Arduino sketches and configurations
-          - **Compiled Firmware**: Ready-to-flash \`.hex\` files for:
-            - Arduino Uno
-            - ATtiny85 v1 (Production Logic Port)
-            - ATtiny85 v2 (Advanced Timer)
-            - ATtiny85 v3 (Failsafe)
-            - ESP32-C3 Control
+          - **Source Code**: ESP32-C3 sketches and configurations
+          - **Compiled Firmware**: Ready-to-flash binaries for:
+            - ESP32-C3 Control (bench)
+            - ESP32-C3 Embedded (production)
           - **Documentation**: Complete setup guides and troubleshooting
 
           ## Platforms Supported
-          - **Arduino Uno**: Full-featured development platform
-          - **ATTiny85**: Production-optimized microcontroller (v1, v2 & v3)
-          - **ESP32-C3**: High-performance embedded controller
+          - **ESP32-C3**: High-performance embedded controller (bench + production builds)
 
           ## Download
           Download the complete package: \`${{ steps.date.outputs.date }}_${{ steps.repo.outputs.name }}.zip\`
@@ -199,17 +150,17 @@ jobs:
           ## Usage Instructions
           1. Download the ZIP file
           2. Extract to your Arduino projects folder
-          3. Upload the appropriate \`.ino\` file to your microcontroller
-          4. Or flash the pre-compiled \`.hex\` files directly
+          3. Upload the appropriate \`.ino\` file to your ESP32-C3
+          4. Or flash the pre-compiled binaries directly
 
           ---
           *This release was automatically generated on ${{ steps.date.outputs.date }}*"
 
           # Create the release (retry on transient 502)
           echo "$RELEASE_NOTES" | retry gh release create ${{ steps.date.outputs.date }} \
-            --title "Release ${{ steps.date.outputs.date }}" \
-            --notes-file - \
-            ${{ steps.date.outputs.date }}_${{ steps.repo.outputs.name }}.zip
+          --title "Release ${{ steps.date.outputs.date }}" \
+          --notes-file - \
+          ${{ steps.date.outputs.date }}_${{ steps.repo.outputs.name }}.zip
 
           echo "New release created successfully."
         fi

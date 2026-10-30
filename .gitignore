@@ -375,8 +375,7 @@ vendor/
 # ==============================================
 
 # Compiled Arduino binaries
-arduino_uno/compiled/
-attiny85/compiled/
+esp32-c3/*/compiled/
 auto_tune/code/build/
 
 # backup

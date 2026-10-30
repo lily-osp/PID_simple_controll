@@ -6,8 +6,8 @@
 
 ### What it does
 1. Installs Arduino CLI and required cores
-2. Compiles Arduino Uno sketch → `arduino_uno/compiled/`
-3. Compiles ATTiny85 sketch → `attiny85/compiled/`
+2. Compiles ESP32-C3 bench sketch → `esp32-c3/control/compiled/`
+3. Compiles ESP32-C3 production sketch → `esp32-c3/embedded/compiled/`
 4. Creates complete ZIP with source + compiled firmware
 5. Automatically creates GitHub releases with packages
 6. Displays memory usage statistics
@@ -18,8 +18,8 @@
 - **Release Title**: `Release 25112025`
 
 ### Complete Package Contents
-- **Source Code**: All Arduino sketches, configs, and documentation
-- **Compiled Firmware**: Ready-to-flash `.hex` files for both platforms
+- **Source Code**: All ESP32-C3 sketches, configs, and documentation
+- **Compiled Firmware**: Ready-to-flash binaries for both builds
 - **Documentation**: Complete setup guides and troubleshooting
 - ❌ **Excluded**: `.git` directories, workflow files
 
@@ -44,19 +44,16 @@
 ### File Structure in Release ZIP
 ```
 25112025_PID_simple_controll.zip/
-├── arduino_uno/
-│   ├── arduino_uno.ino        # Source code
-│   ├── compiled/              # ← Ready-to-flash firmware
-│   │   ├── arduino_uno.ino.hex
-│   │   └── arduino_uno.ino.elf
-│   └── README.md
-├── attiny85/
-│   ├── attiny85.ino           # Source code
-│   ├── compiled/              # ← Ready-to-flash firmware
-│   │   ├── attiny85.ino.hex
-│   │   └── attiny85.ino.elf
-│   └── README.md
-├── assets/                    # Documentation assets
+├── esp32-c3/
+│   ├── control/
+│   │   ├── control.ino        # Source code (bench)
+│   │   └── compiled/          # ← Ready-to-flash firmware
+│   ├── embedded/
+│   │   ├── embedded.ino       # Source code (production)
+│   │   └── compiled/          # ← Ready-to-flash firmware
+│   ├── BUILDS.md
+│   └── DIAGNOSTICS.md
+├── docs/                      # Documentation
 ├── README.md                  # Main documentation
 └── ...
 ```

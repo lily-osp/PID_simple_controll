@@ -1,176 +1,120 @@
-# BLDC Motor PID Controller
+# BLDC Motor PID Controller (ESP32-C3)
 
-High-performance PID control system for maintaining precise RPM control of BLDC motors across multiple microcontroller platforms. Designed for reliability, efficiency, and ease of deployment from prototyping to production.
+Fixed-target PID controller for BLDC motors on the ESP32-C3, run bare-metal
+for compute (no WiFi, no BLE). Holds 1440 RPM via a 200Hz FreeRTOS loop.
+
+> History: this project previously shipped Arduino Uno and ATtiny85 variants.
+> They were removed on 2026-10-31 and are preserved on the
+> `archive/all-variants` branch.
 
 ## Overview
 
-This project provides complete PID controller implementations for BLDC motors, supporting three distinct microcontroller platforms. Each implementation is optimized for specific use cases: from initial development and tuning on Arduino, to cost-effective production deployment on ATtiny85, to advanced embedded applications on ESP32-C3 with wireless connectivity.
+Single-platform implementation targeting the ESP32-C3 SuperMini. The C3 is
+used for its 160MHz RISC-V core and hardware FPU; no wireless stack is used.
+Two firmware builds share one set of drivers: a bench build for bring-up and
+a production build for the enclosure.
 
-### Platform Variants
-
-| Platform | Status | Use Case | Key Features |
-|----------|--------|----------|--------------|
-| **Arduino Uno** | Development | Prototyping, PID Tuning | Serial debugging, real-time tuning interface |
-| **ATtiny85** | Production | Cost-optimized deployment | Minimal footprint, watchdog protection, dual variants |
-| **ESP32-C3** | Modern Embedded | High-performance, IoT | FreeRTOS, BLE control, hardware PWM, 200Hz loop |
+| Build | Status | Use Case | Key Features |
+|-------|--------|----------|--------------|
+| **`esp32-c3/control/`** | Bench | Bring-up, service, Hall-line trials | Serial console, telemetry, trial scoring |
+| **`esp32-c3/embedded/`** | Production | Enclosure deployment | Silent, autonomous, arming + stall failsafe |
 
 ## Key Features
 
-- **Precise RPM Control**: Advanced PID algorithm with anti-windup and derivative filtering
-- **Multiple Filtering Options**: EMA, median, moving average, and sliding window filters
-- **Soft-Start Protection**: Configurable ramp-up prevents mechanical stress and current spikes
-- **Hardware Optimization**: Platform-specific drivers leverage hardware peripherals for maximum efficiency
-- **Safety Features**: Emergency stop, watchdog timers, and input validation
-- **Wireless Control**: Optional BLE interface on ESP32-C3 for remote monitoring and control
-- **Production Ready**: Proven in real-world applications with comprehensive error handling
+- **200Hz Control Loop**: High-frequency PID updates via dedicated FreeRTOS task
+- **Hardware-Accelerated PWM**: ESP32 LEDC peripheral generating smooth 5kHz motor control signals
+- **Interrupt-Driven RPM**: High-precision pulse counting using IRAM-resident ISR
+- **Sliding Window Filter**: 12-sample window + IIR smoothing for stable control input
+- **ESC Arming + Soft-Start**: 2s zero-throttle arm, then 1.5s power ramp
+- **FPU Utilization**: Full floating-point PID calculations for maximum precision
+- **Safety Features**: Stall failsafe, emergency stop, input validation
 
 ## Quick Start
 
-### 1. Choose Your Platform
+### 1. Hardware Requirements
 
-**For Initial Development**: Start with Arduino Uno to characterize your motor and tune PID constants.
-
-**For Production Deployment**: Use ATtiny85 v1 for direct logic port, or v2 for optimized performance.
-
-**For Advanced Applications**: Choose ESP32-C3 for wireless control, high-speed loops, and RTOS features.
-
-### 2. Hardware Requirements
-
-**Common Components**:
+- ESP32-C3 SuperMini (or compatible) + USB-C cable
 - 3-Phase BLDC Motor with Hall Effect sensors
-- Electronic Speed Controller (ESC) with PWM input
+- PWM-compatible ESC / motor driver (e.g., JYQD V7.3E)
 - Power supply appropriate for motor voltage requirements
-- Microcontroller (Arduino Uno, ATtiny85, or ESP32-C3)
+- Voltage divider (2.2kΩ/3.3kΩ) if using 5V Hall sensors
 
-**Platform-Specific**:
-- **Arduino Uno**: USB cable for programming, optional potentiometers for tuning
-- **ATtiny85**: Arduino Uno as ISP programmer, 10µF capacitor for programming
-- **ESP32-C3**: Voltage divider (2.2kΩ/3.3kΩ) if using 5V Hall sensors
-
-### 3. Installation Steps
+### 2. Installation Steps
 
 ```bash
 git clone https://github.com/your-repo/PID_simple_controll.git
 cd PID_simple_controll
 ```
 
-**Select your platform directory**:
-- `arduino_uno/` - Development and tuning platform
-- `attiny85/` - Production deployment (v1 or v2)
-- `esp32-c3/` - High-performance RTOS platform
-
 **Configure for your motor**:
-1. Edit `config.h` to set motor pole count and target RPM
-2. Adjust PID gains if you have known values
+1. Edit `esp32-c3/control/config.h` (pins, motor, PPR)
+2. Edit `esp32-c3/control/config_common.h` (PID gains)
 3. Configure pin assignments if using custom wiring
 
 **Upload firmware**:
-- Arduino Uno: Use Arduino IDE directly
-- ATtiny85: Program via Arduino as ISP
-- ESP32-C3: Use Arduino IDE with ESP32 board support or PlatformIO
+- Use Arduino IDE with ESP32 board support, or `arduino-cli`:
+
+```bash
+arduino-cli compile -b esp32:esp32:nologo_esp32c3_super_mini esp32-c3/embedded
+arduino-cli upload  -p /dev/ttyACM0 -b esp32:esp32:nologo_esp32c3_super_mini esp32-c3/embedded
+```
+
+Which build to flash: see [BUILDS.md](../esp32-c3/BUILDS.md).
 
 ## Platform Details
-
-### Arduino Uno (`arduino_uno/`)
-
-**Processor**: ATmega328P @ 16MHz
-
-**Purpose**: Development platform for initial motor characterization and PID tuning.
-
-**Features**:
-- Serial Monitor and Plotter output for real-time visualization
-- Potentiometer-based live PID tuning (no code recompilation needed)
-- Mode switching between normal operation and tuning mode
-- Comprehensive debug output
-- Emergency stop functionality
-
-**Recommended Workflow**:
-1. Connect motor and Hall sensor to Arduino Uno
-2. Upload sketch and open Serial Plotter
-3. Enable tuning mode and adjust potentiometers
-4. Record optimal PID values
-5. Transfer values to production platform
-
-### ATtiny85 (`attiny85/`)
-
-**Processor**: ATtiny85 @ 16MHz (PLL mode)
-
-**Purpose**: Cost-effective production deployment with minimal component count.
-
-**Variants**:
-
-**v1 (Recommended)**: Direct logic port from Arduino Uno. If it works on Uno, it works on ATtiny85 v1. Uses floating-point math for identical behavior.
-
-**v2 (Optimized)**: Advanced implementation using hardware timer capture and integer math. More efficient for resource-constrained or high-speed applications.
-
-**Features**:
-- Watchdog timer protection prevents system hangs
-- Minimal power consumption
-- 8-pin DIP package for easy PCB integration
-- Emergency stop with automatic recovery
-- Proven reliability in production environments
-
-**Pin Configuration**:
-- PB3 (Pin 2): Hall sensor input (interrupt capable)
-- PB0 (Pin 5): PWM output to ESC
-- VCC (Pin 8): 5V power
-- GND (Pin 4): Ground
 
 ### ESP32-C3 (`esp32-c3/`)
 
 **Processor**: RISC-V @ 160MHz with hardware FPU
 
-**Purpose**: High-performance applications requiring fast control loops, wireless connectivity, or RTOS task management.
+**Firmware Builds**:
 
-**Firmware Variants**:
+**Bench (`control/`)**: Serial console for bring-up and service.
+- Command parser, telemetry, diagnostics console
+- Trial log auto-scores each power cycle to rank Hall permutations
+- Full visibility into PID state and RPM estimation
 
-**Standard (`control/`)**: Always-on motor control with maximum performance.
-- 200Hz PID control loop via dedicated FreeRTOS task
-- Hardware-accelerated PWM (LEDC peripheral, 5kHz)
-- Interrupt-driven RPM sensing with IRAM-resident ISR
-- Sliding window filter for stable RPM readings
-- Immediate startup on power application
-
-**BLE-Enabled (`control_ble/`)**: Wireless control interface with start/stop commands.
-- All features from standard variant
-- Bluetooth Low Energy interface (no WiFi interference)
-- Real-time status notifications (500ms interval)
-- Remote RPM target adjustment
-- Thread-safe shared state with spinlock protection
-- JSON status format for easy integration
-
-**Motor Simulator (`simulator/`)**: Virtual motor for safe testing and development.
-- Simulates motor physics (inertia, acceleration)
-- Configurable max RPM and response characteristics
-- Optional noise injection for filter testing
-- Eliminates need for real motor during algorithm development
+**Production (`embedded/`)**: Silent, autonomous build for the enclosure.
+- Control loop, ESC arming, soft-start, stall failsafe
+- Shares the exact RPM estimator, PID, and LEDC drivers with the bench build
 
 **Features**:
 - Hardware FPU for fast floating-point calculations
 - FreeRTOS ensures deterministic timing
 - 3.3V logic level (requires voltage divider for 5V sensors)
-- Optional wireless connectivity (BLE)
-- Comprehensive debugging via Serial Monitor
+- Comprehensive debugging via Serial Monitor (bench build)
+
+Full architecture: [ESP32-C3 README](../esp32-c3/README.md).
+
+### Custom Driver PCB (`PCB/bldc_esp32_driver/`)
+
+Full-integration 70 × 120 mm board combining the firmware above with its own
+driver hardware — no external ESC needed:
+
+- **JYQD-V7.3E3 architecture**: JY01 controller + JY213L gate driver + JY2605M
+  half-bridges (same silicon as the reference driver board)
+- **ESP32-C3 Super Mini** onboard as the controller (FG/PWM/VR/EL/trim pot)
+- **Hall signal conditioner**: RC filter → LM324 (×11) → 74HC14 Schmitt trigger
+- **Power tree**: V_IN → 7812 → +12V → 7805 → +5V
+
+Design files, port pinouts, and build scripts: [PCB README](../PCB/bldc_esp32_driver/README.md).
 
 ## Documentation
 
 ### Guides
 
-- **[Hardware Assembly](howto.md)**: Complete wiring guide, pin assignments, and connection diagrams for all platforms
-- **[Troubleshooting](mitigation.md)**: Comprehensive diagnosis and solutions for common issues including electrical, mechanical, and software problems
-- **[Platform Comparison](COMPARISON.md)**: Detailed technical comparison of features, performance, and use cases
-
-### Platform-Specific
-
-- **[Arduino Uno](../arduino_uno/README.md)**: Development setup and tuning procedures
-- **[ATtiny85](../attiny85/README.md)**: Production deployment guide and programming instructions
-- **[ESP32-C3](../esp32-c3/README.md)**: Advanced features, BLE interface, and RTOS architecture
+- **[Hardware Assembly](howto.md)**: Wiring guide, pin assignments, and connection diagrams
+- **[Troubleshooting](mitigation.md)**: Comprehensive diagnosis and solutions for common issues
+- **[ESP32-C3 README](../esp32-c3/README.md)**: Architecture, firmware, and hardware setup
+- **[Builds](../esp32-c3/BUILDS.md)**: Production vs bench firmware, and how they share code
+- **[Diagnostics Guide](../esp32-c3/DIAGNOSTICS.md)**: Serial console commands and fault isolation
+- **[Driver PCB](../PCB/bldc_esp32_driver/README.md)**: Custom ESP32-C3 + JYQD-architecture driver board
 
 ## Configuration
 
 ### Motor Configuration
 
-All platforms use a `config.h` file for motor-specific settings:
+Settings live in `esp32-c3/*/config.h`:
 
 ```cpp
 #define PULSES_PER_REV  4     // Set based on motor pole count
@@ -183,7 +127,7 @@ Example: 8-pole motor = 4 pulses per revolution
 
 ### PID Tuning
 
-PID constants are defined in platform-specific configuration:
+PID constants are defined in `esp32-c3/control/config_common.h`:
 
 ```cpp
 #define DEFAULT_KP  0.150  // Proportional gain
@@ -192,17 +136,16 @@ PID constants are defined in platform-specific configuration:
 ```
 
 **Tuning Process**:
-1. Start with Arduino Uno tuning mode using potentiometers
-2. Begin with Kp only (set Ki and Kd to 0)
-3. Increase Kp until oscillation occurs, then reduce by 30%
-4. Add Ki gradually to eliminate steady-state error
-5. Add small Kd if overshoot occurs
-6. Transfer final values to production platform
+1. Begin with Kp only (set Ki and Kd to 0)
+2. Increase Kp until oscillation occurs, then reduce by 30%
+3. Add Ki gradually to eliminate steady-state error
+4. Add small Kd if overshoot occurs
+5. Watch the bench console telemetry to verify stability
 
 ## Safety Considerations
 
 1. **Electrical Isolation**: Keep logic power separate from motor power (common ground only)
-2. **Voltage Protection**: Use voltage dividers when interfacing 5V sensors with 3.3V logic (ESP32-C3)
+2. **Voltage Protection**: Use voltage dividers when interfacing 5V sensors with 3.3V logic
 3. **Mechanical Safety**: Secure motor firmly and remove propellers during initial testing
 4. **Emergency Stop**: Keep power disconnect easily accessible during testing
 5. **Current Rating**: Ensure power supply can handle motor startup current (typically 2-3x running current)
@@ -216,7 +159,6 @@ PID constants are defined in platform-specific configuration:
 | RPM reading 2x actual | Wrong `PULSES_PER_REV` | Divide current value by 2 |
 | Unstable speed | Poor PID tuning or noise | Reduce Kp by 30%, add filtering |
 | Random RPM spikes | Electrical noise | Add 0.1µF capacitor to Hall input |
-| ATtiny85 won't program | Missing reset capacitor | Add 10µF between Arduino Reset and GND |
 | ESP32-C3 damaged | 5V applied to GPIO | Use voltage divider for all 5V signals |
 
 See [Troubleshooting Guide](mitigation.md) for comprehensive solutions.
@@ -224,7 +166,6 @@ See [Troubleshooting Guide](mitigation.md) for comprehensive solutions.
 ## Contributing
 
 Contributions are welcome. Areas of interest:
-- Additional microcontroller platform support
 - Advanced PID algorithms (adaptive, fuzzy logic)
 - Enhanced filtering techniques
 - PCB designs for production deployment

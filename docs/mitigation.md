@@ -37,7 +37,6 @@ Comprehensive diagnosis and resolution strategies for common issues encountered 
 **Professional**:
 - Logic analyzer (timing analysis)
 - Thermal camera (heat distribution)
-- BLE scanner app (ESP32-C3 BLE debugging)
 
 ## Motor Control Issues
 
@@ -48,8 +47,6 @@ Comprehensive diagnosis and resolution strategies for common issues encountered 
 **Diagnostic Steps**:
 
 1. **Verify PWM Signal**:
-   - Arduino Uno: Check Pin 9 with oscilloscope or LED
-   - ATtiny85: Check PB0 (Pin 5) with oscilloscope
    - ESP32-C3: Check GPIO 1 with oscilloscope
    - Expected: PWM signal present (varying duty cycle)
 
@@ -115,7 +112,7 @@ Comprehensive diagnosis and resolution strategies for common issues encountered 
    - Slow (<1 Hz): Integral gain too high
    - Random: Electrical noise
 
-2. **Check Serial Plotter**: Plot RPM, target, and error over time
+2. **Check Console Telemetry**: Plot RPM, target, and error over time (bench build)
 
 3. **Test Without Load**: Remove propeller, check if oscillation persists
 
@@ -152,9 +149,6 @@ Comprehensive diagnosis and resolution strategies for common issues encountered 
 - Increase filtering:
 
 ```cpp
-// For Arduino Uno / ATtiny85 v1
-#define EMA_ALPHA  0.15  // Was 0.25, more smoothing
-
 // For ESP32-C3
 #define RPM_FILTER_SIZE  15  // Was 10, longer averaging
 ```
@@ -236,7 +230,7 @@ int kickstartPWM = PWM_MIN_THRESHOLD + 20 + (int)((targetPWM - PWM_MIN_THRESHOLD
    - Frequency increases with rotation speed
 
 3. **Check Microcontroller Input**:
-   - Verify signal reaching interrupt pin (Arduino Pin 2, ATtiny PB3, ESP32 GPIO 0)
+   - Verify signal reaching interrupt pin (ESP32 GPIO 0)
    - For ESP32-C3 with 5V sensor: verify voltage divider present and correct
 
 **Resolution**:
@@ -314,26 +308,6 @@ Hall Sensor ─── 1kΩ ───┬─── Microcontroller Pin
 
 **Software Fixes**:
 
-For Arduino Uno / ATtiny85 v1:
-```cpp
-// Enable median filter (if not already)
-// Add to filtering section:
-float medianFilter(float a, float b, float c) {
-    if (a > b) {
-        if (b > c) return b;
-        else if (a > c) return c;
-        else return a;
-    } else {
-        if (a > c) return a;
-        else if (b > c) return c;
-        else return b;
-    }
-}
-
-// Use in loop:
-float filtered = medianFilter(rpm[0], rpm[1], rpm[2]);
-```
-
 For ESP32-C3:
 ```cpp
 // Increase sliding window size
@@ -348,11 +322,6 @@ For ESP32-C3:
 
 **Resolution**:
 
-For EMA filtering:
-```cpp
-#define EMA_ALPHA  0.35  // Was 0.15, faster response
-```
-
 For sliding window:
 ```cpp
 #define RPM_FILTER_SIZE  5  // Was 10, shorter window
@@ -362,23 +331,21 @@ For sliding window:
 
 ## Electrical and Power Issues
 
-### Power Supply Conflicts (Arduino Uno)
+### Power Supply Conflicts
 
 **Symptoms**: Onboard regulator overheating, erratic logic levels, random resets.
 
-**Cause**: Simultaneous USB (5V) and external VIN (7-12V) connection, or insufficient current capacity.
+**Cause**: Simultaneous USB (5V) and external power connection, or insufficient current capacity.
 
 **Resolution**:
 
 **During Development**:
 - Use USB power only for logic
 - Disconnect motor power during upload
-- Or use external 5V to 5V pin (bypasses regulator)
 
 **During Operation**:
-- Disconnect USB
-- Power via VIN (7-12V) or 5V pin
-- Ensure supply can deliver 500mA+ for Arduino + 2-3A for motor
+- Power logic and motor from separate rails sharing a common ground
+- Ensure supply can deliver 500mA+ for logic + 2-3A for motor
 
 **Best Practice**:
 - Separate logic power from motor power
@@ -387,7 +354,7 @@ For sliding window:
 
 **Wiring**:
 ```
-Logic Supply (5V) ─── Arduino 5V Pin
+Logic Supply ─── ESP32 5V Pin
                   └─── Common GND ───┬─── Motor Supply GND
                                      │
 Motor Supply (+V) ─── ESC Power      │
@@ -488,83 +455,6 @@ Power Supply
 
 ## Platform-Specific Issues
 
-### Arduino Uno Issues
-
-#### Serial Monitor Shows Garbage
-
-**Cause**: Baud rate mismatch
-
-**Solution**:
-- Set Serial Monitor to 115200 baud
-- Or change code: `Serial.begin(115200);` to `Serial.begin(9600);`
-
-#### Potentiometers Not Working
-
-**Diagnostic**:
-- Measure voltage at pot center pin (should vary 0-5V)
-- Check A0-A3 connections
-
-**Solution**:
-- Verify pots connected: outer pins to 5V/GND, center to analog pin
-- Test pot with multimeter (resistance should vary)
-- Check tuning mode enabled (Pin 3 to GND)
-
-### ATtiny85 Issues
-
-#### Upload Failure: "Programmer Not Responding"
-
-**Diagnostic Checklist**:
-- [ ] 10µF capacitor between Arduino Reset and GND (positive to Reset)
-- [ ] ISP wiring correct:
-  - ATtiny Pin 5 (PB0) → Arduino Pin 11 (MOSI)
-  - ATtiny Pin 6 (PB1) → Arduino Pin 12 (MISO)
-  - ATtiny Pin 7 (PB2) → Arduino Pin 13 (SCK)
-  - ATtiny Pin 1 (Reset) → Arduino Pin 10
-  - ATtiny Pin 8 (VCC) → Arduino 5V
-  - ATtiny Pin 4 (GND) → Arduino GND
-- [ ] Arduino has ArduinoISP sketch uploaded
-- [ ] Correct board selected in Tools menu
-
-**Solution**:
-1. Verify all ISP connections with multimeter (continuity test)
-2. Try slower programming: Tools → Programmer → "Arduino as ISP (slow)"
-3. Check ATtiny85 chip not damaged (test with known-good chip)
-
-#### Invalid Device Signature
-
-**Cause**: Wrong chip type or communication failure
-
-**Solution**:
-- Verify ATtiny85 (not ATtiny25 or ATtiny45)
-- Check chip orientation (Pin 1 marked with dot or notch)
-- Clean chip pins (oxidation can cause poor contact)
-- Try different ATtiny85 chip
-
-#### Watchdog Reset Loop
-
-**Symptoms**: System restarts every few seconds continuously
-
-**Cause**: Main loop taking too long, watchdog timer expiring
-
-**Solution**:
-```cpp
-// In main loop, ensure this called frequently:
-wdt_reset();
-
-// Or increase watchdog timeout:
-wdt_enable(WDTO_8S);  // Was WDTO_2S
-```
-
-#### Code Too Large for Flash
-
-**Symptoms**: Compilation error "sketch too big"
-
-**Solution**:
-- Remove debug code (Serial print statements)
-- Use integer math instead of float (ATtiny85 v2)
-- Optimize PID calculations
-- Remove unused features
-
 ### ESP32-C3 Issues
 
 #### Failed to Connect / Upload Error
@@ -581,30 +471,12 @@ wdt_enable(WDTO_8S);  // Was WDTO_2S
 - Select correct port (may change each connection)
 - Reduce upload speed: Tools → Upload Speed → 115200
 
-#### BLE Device Not Found
+#### Serial Monitor Shows Garbage
 
-**Diagnostic**:
-- Open Serial Monitor, verify "BLE Advertising Started" message
-- Check ESP32 powered and running (LED should be on)
-- Verify mobile device BLE enabled
+**Cause**: Baud rate mismatch
 
 **Solution**:
-- Move phone closer to ESP32 (BLE range limited)
-- Restart ESP32 (power cycle)
-- Close other BLE connections on phone (connection limit)
-- Try different BLE scanner app (nRF Connect, LightBlue)
-- Check BLE not disabled in code
-
-#### BLE Connection Drops
-
-**Cause**: Interference or range issues
-
-**Solution**:
-- Reduce distance between phone and ESP32
-- Remove obstacles (metal, concrete attenuate BLE)
-- Check for WiFi interference (same 2.4GHz band)
-- Disable WiFi if not needed
-- Increase connection interval in code (reduces power, increases stability)
+- Set Serial Monitor to 115200 baud
 
 #### Serial Monitor Spam
 
@@ -642,16 +514,6 @@ if (millis() - lastDebug > SERIAL_DEBUG_INTERVAL) {
 - Increase Ki (integral gain eliminates steady-state error)
 - Verify integral not saturated (check windup limits)
 - Check for mechanical issues (friction, binding)
-
-### CPU Overload (ATtiny85)
-
-**Symptoms**: Control loop slower than expected, missed interrupts
-
-**Solution**:
-- Use ATtiny85 v2 (integer math, hardware timers)
-- Simplify calculations (lookup tables instead of complex math)
-- Reduce filtering complexity
-- Increase control loop period (e.g., 10ms instead of 5ms)
 
 ## System Recovery
 
@@ -780,13 +642,13 @@ Before reporting an issue, verify:
 - [ ] Ground connections solid (common ground)
 - [ ] Configuration values appropriate (PULSES_PER_REV, PID gains)
 - [ ] Software uploaded successfully
-- [ ] Voltage levels appropriate (5V vs 3.3V)
+- [ ] Voltage levels appropriate (3.3V logic)
 - [ ] Motor and ESC compatible and working separately
 - [ ] No physical damage to components
 - [ ] Tried basic troubleshooting (power cycle, check connections)
 
 Include when asking for help:
-- Platform used (Arduino Uno, ATtiny85, ESP32-C3)
+- Build used (`esp32-c3/control` or `esp32-c3/embedded`)
 - Motor specifications (pole count, voltage, current)
 - ESC model and specifications
 - Power supply details
