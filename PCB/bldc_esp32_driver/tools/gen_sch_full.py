@@ -36,6 +36,8 @@ def extract_libTop(symfile, name):
 l7805 = extract_libTop(f"{KSYM}/Regulator_Linear.kicad_sym", "L7805")
 l7812 = extract_libTop(f"{KSYM}/Regulator_Linear.kicad_sym", "L7812")
 conn6 = extract_libTop(f"{KSYM}/Connector_Generic.kicad_sym", "Conn_01x06")
+conn2 = extract_libTop(f"{KSYM}/Connector_Generic.kicad_sym", "Conn_01x02")
+conn3 = extract_libTop(f"{KSYM}/Connector_Generic.kicad_sym", "Conn_01x03")
 
 def embed2(blk, libname):
     # rename only the TOP symbol (children keep suffix-only names, e.g. "X_1_1")
@@ -47,7 +49,9 @@ def embed2(blk, libname):
 # sanitize cut: strip TODAY's-file leftovers from earlier generator passes:
 #   duplicate defs of the dynamic symbols + stale lib-prefix on their children
 DYN = [("L7805", "Regulator_Linear:L7805"), ("L7812", "Regulator_Linear:L7812"),
-       ("Conn6", "Connector_Generic:Conn_01x06")]
+       ("Conn6", "Connector_Generic:Conn_01x06"),
+       ("Conn2", "Connector_Generic:Conn_01x02"),
+       ("Conn3", "Connector_Generic:Conn_01x03")]
 for _nm, _pfx in DYN:
     while True:
         _i = lib.find(f'(symbol "{_pfx}"')
@@ -55,7 +59,8 @@ for _nm, _pfx in DYN:
             break
         _blk, _e = brace(lib, _i)
         lib = lib[:_i] + lib[_e:]
-for _pre in ["Regulator_Linear:L7805_", "Regulator_Linear:L7812_1_", "Connector_Generic:Conn_01x06_"]:
+for _pre in ["Regulator_Linear:L7805_", "Regulator_Linear:L7812_1_", "Connector_Generic:Conn_01x06_",
+             "Connector_Generic:Conn_01x02_", "Connector_Generic:Conn_01x03_"]:
     lib = lib.replace(f'(symbol "{_pre}', '(symbol "')
 
 # L7812 has no child of its own (extends L7805) -> synthesize explicit child body
@@ -68,7 +73,9 @@ l7812 = l7812[:-1] + nc + ')'
 l7805b = embed2(l7805, "Regulator_Linear")
 l7812b = embed2(l7812, "Regulator_Linear")
 conn6b = embed2(conn6, "Connector_Generic")
-lib = lib[:-1] + "\n" + l7805b + "\n" + l7812b + "\n" + conn6b + "\n  )"
+conn2b = embed2(conn2, "Connector_Generic")
+conn3b = embed2(conn3, "Connector_Generic")
+lib = lib[:-1] + "\n" + l7805b + "\n" + l7812b + "\n" + conn6b + "\n" + conn2b + "\n" + conn3b + "\n  )"
 
 # JY213L top pins 20/19/18 all sit at x=0 (same column) with upward stubs -> spread
 # horizontally so their up-wires don't collide (netlist neutrality: only pin x moves)
@@ -161,6 +168,8 @@ P("Device:R_Potentiometer_US", 1, "R_Potentiometer_US_1_1")
 P("Connector_Generic:Conn_01x05_Pin", 1, "Conn_01x05_Pin_1_1")
 P("Connector_Generic:Conn_01x06", 1, "Conn_01x06_1_1")
 P("Connector_Generic:Conn_01x09_Pin", 1, "Conn_01x09_Pin_1_1")
+P("Connector_Generic:Conn_01x02", 1, "Conn_01x02_1_1")
+P("Connector_Generic:Conn_01x03", 1, "Conn_01x03_1_1")
 
 print("pin def check:")
 for (a, b), ps in PINS.items():
@@ -170,7 +179,8 @@ for (a, b), ps in PINS.items():
 # instance: (ref, lib_id, unit, value, footprint, x, y)
 COMPS = [
     # --- power entry / bulk / regulators ---
-    ("J5",  "Connector_Generic:Conn_01x05_Pin", 1, "P+,P-,MC,MB,MA",  "TerminalBlock:TerminalBlock_MaiXu_MX126-5.0-05P_1x05_P5.00mm", 27.94, 66.04),
+    ("J5",  "Connector_Generic:Conn_01x02", 1, "P+,P-",  "TerminalBlock:TerminalBlock_MaiXu_MX126-5.0-02P_1x02_P5.00mm", 27.94, 60.96),
+    ("J6",  "Connector_Generic:Conn_01x03", 1, "MA,MB,MC",  "TerminalBlock:TerminalBlock_MaiXu_MX126-5.0-03P_1x03_P5.00mm", 27.94, 76.2),
     ("C1",  "Device:C_Polarized", 1, "480uF/63V",  "Capacitor_THT:CP_Radial_D13.0mm_P5.00mm", 43.18, 63.5),
     ("C2",  "Device:C_Polarized", 1, "480uF/63V",  "Capacitor_THT:CP_Radial_D13.0mm_P5.00mm", 43.18, 78.74),
     ("C5",  "Device:C_Polarized", 1, "220uF/50V",  "Capacitor_THT:CP_Radial_D10.0mm_P5.00mm", 43.18, 93.98),
@@ -256,9 +266,6 @@ COMPS = [
     ("R33", "Device:R_US", 1, "10k", "Resistor_SMD:R_0805_2012Metric", 41.91, 185.42),
     ("R34", "Device:R_US", 1, "1k", "Resistor_SMD:R_0805_2012Metric", 48.26, 193.04),
     ("R35", "Device:R_US", 1, "10k", "Resistor_SMD:R_0805_2012Metric", 41.91, 199.39),
-    ("J4",  "Connector_Generic:Conn_01x06", 1, "GND,VR,Z/F,Signal,EL,5V", "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical", 25.4, 203.2),
-    ("J1",  "Connector_Generic:Conn_01x09_Pin", 1, "BRK_L(GPIO5..21+GND)", "Connector_PinHeader_2.54mm:PinHeader_1x09_P2.54mm_Vertical", 190.5, 226.06),
-    ("J2",  "Connector_Generic:Conn_01x09_Pin", 1, "BRK_R(GPIO0..4+rails)", "Connector_PinHeader_2.54mm:PinHeader_1x09_P2.54mm_Vertical", 198.12, 226.06),
 ]
 
 # net table: netname -> [(ref, pin_number)]
@@ -274,17 +281,17 @@ NETS = {
               ("C16","2"), ("C17","2"), ("C18","2"), ("C21","2"), ("C19","2"), ("C20","2"),
               ("C11","2"), ("C12","2"),
               ("U4","12"), ("U5","9"), ("U5","11"), ("U5","13"),
-              ("J3","1"), ("J4","1"), ("RV1","3"), ("J1","9"), ("J2","7")],
+              ("J3","1"), ("RV1","3")],
     "ISENSE_F": [("U1","2"), ("R36","1"), ("C21","1")],
     "+12V":  [("U8","3"), ("U7","1"), ("C3","1"), ("C11","1"), ("C12","1"), ("U3","7"), ("D1","2"), ("D2","2"), ("D3","2")],
     "+5V":   [("U7","3"), ("C4","1"), ("U1","4"), ("U4","4"), ("U5","14"), ("U6","16"),
-              ("J3","5"), ("J4","6"), ("R20","1"), ("R6","2"), ("R33","2"), ("R35","2"), ("J2","8"),
+              ("J3","5"), ("R20","1"), ("R6","2"), ("R33","2"), ("R35","2"),
               ("C19","1"), ("C20","1")],
-    "+3.3V": [("U6","14"), ("RV1","1"), ("J2","6")],
+    "+3.3V": [("U6","14"), ("RV1","1")],
     # ---- phases ----
-    "PH_A":  [("Q2","3"), ("Q2","5"), ("Q2","7"), ("U3","18"), ("C13","2"), ("J5","3")],
-    "PH_B":  [("Q3","3"), ("Q3","5"), ("Q3","7"), ("U3","15"), ("C14","2"), ("J5","4")],
-    "PH_C":  [("Q4","3"), ("Q4","5"), ("Q4","7"), ("U3","12"), ("C15","2"), ("J5","5")],
+    "PH_A":  [("Q2","3"), ("Q2","5"), ("Q2","7"), ("U3","18"), ("C13","2"), ("J6","1")],
+    "PH_B":  [("Q3","3"), ("Q3","5"), ("Q3","7"), ("U3","15"), ("C14","2"), ("J6","2")],
+    "PH_C":  [("Q4","3"), ("Q4","5"), ("Q4","7"), ("U3","12"), ("C15","2"), ("J6","3")],
     # ---- bootstrap: anode->VB? no: anode=pin2(A)->+12V, cathode=pin1(K)->VB ----
     "VB_A":  [("U3","20"), ("D1","1"), ("C13","1")],
     "VB_B":  [("U3","17"), ("D2","1"), ("C14","1")],
@@ -331,30 +338,20 @@ NETS = {
     "HALL_OUT_B": [("U5","4"), ("U1","14")],
     "HALL_OUT_C": [("U5","6"), ("U1","15")],
     # ---- control ----
-    "VR":     [("U1","16"), ("U2","3"), ("R6","1"), ("J4","2")],
-    "PWM_OUT":[("U6","10"), ("R7","1"), ("J2","2")],
+    "VR":     [("U1","16"), ("U2","3"), ("R6","1")],
+    "PWM_OUT":[("U6","10"), ("R7","1")],
     "PWM_G":  [("R7","2"), ("U2","1")],
-    "FG":     [("U1","6"), ("R4","1"), ("J4","4")],
-    "RPM_IN": [("R4","2"), ("R5","1"), ("C6","1"), ("U6","9"), ("J2","1")],
-    "POT_ADC":[("RV1","2"), ("U6","11"), ("J2","3")],
-    "POT_EN": [("U6","12"), ("J2","4")],
-    "GPIO4":  [("U6","13"), ("R34","1"), ("J2","5")],
-    "EL":     [("U1","1"), ("R33","1"), ("R34","2"), ("J4","5")],
-    "ZF":     [("U1","5"), ("R35","1"), ("J4","3")],
-    "GPIO20": [("U6","7"), ("J1","7")],
-    "GPIO21": [("U6","8"), ("J1","8")],
-    "GPIO5":  [("U6","1"), ("J1","1")],
-    "GPIO6":  [("U6","2"), ("J1","2")],
-    "GPIO7":  [("U6","3"), ("J1","3")],
-    "GPIO8":  [("U6","4"), ("J1","4")],
-    "GPIO9":  [("U6","5"), ("J1","5")],
-    "GPIO10": [("U6","6"), ("J1","6")],
+    "FG":     [("U1","6"), ("R4","1")],
+    "RPM_IN": [("R4","2"), ("R5","1"), ("C6","1"), ("U6","9")],
+    "POT_ADC":[("RV1","2"), ("U6","11")],
+    "GPIO4":  [("U6","13"), ("R34","1")],
+    "EL":     [("U1","1"), ("R33","1"), ("R34","2")],
+    "ZF":     [("U1","5"), ("R35","1")],
+    "GPIO5":  [("U6","1"), ("R32","1")],
     "OPA4_FB":[("U4","13"), ("U4","14")],
     "LED1_A": [("R20","2"), ("LED1","2")],
     "LED2_A": [("R32","2"), ("LED2","2")],
 }
-# authoritative repairs:
-NETS["GPIO5"] = [("U6","1"), ("J1","1"), ("R32","1")]  # GPIO5 drives ERR LED (R32)
 
 # ---------------------------------------------------------------- 6. emit image
 # collect pin->net lookup from NETS: also validate uniqueness per pin
