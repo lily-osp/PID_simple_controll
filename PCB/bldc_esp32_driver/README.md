@@ -202,6 +202,12 @@ fanout corridor, and placing it in line with the FETs makes them unreachable.
 - KiCad writes the inner copper layers with their internal layer IDs (`Copper,L5,Inr`,
   `L7`) into the `.gbrjob` even though the gerbers themselves carry the correct `L2`/`L3`.
   `fab_package.sh` rewrites the job file so CAM cannot read a 4-layer stack as 8-layer.
+- A 3D render with no model library looks like a bare board with random pads, which reads
+  as "the placement is broken". This machine has no `kicad-packages3d` installed; the
+  models are fetched with `nix build nixpkgs#kicad.libraries.packages3d` and are shipped
+  as **zip files named `.stpZ`**, not zstd. Unzip the ones the board references and point
+  `KICAD9_3DMODEL_DIR` at the result:
+  `KICAD9_3DMODEL_DIR=<dir> kicad-cli pcb render ...`
 - The mask gerbers are emitted as **G36/G37 region fills**, not aperture flashes. Counting
   `%ADD`/`D03` in them reports zero and looks catastrophic; count `G36` instead.
 
