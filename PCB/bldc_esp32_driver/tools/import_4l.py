@@ -13,7 +13,7 @@ import pcbnew
 BOARD = "bldc_esp32_driver.kicad_pcb"
 SES = sys.argv[1] if len(sys.argv) > 1 else "/tmp/opencode/c4.ses"
 MM = 1_000_000
-X0, Y0, W, H, R = 100.0, 40.0, 60.0, 95.0, 5.0
+X0, Y0, W, H, R = 100.0, 40.0, 64.0, 98.0, 5.0
 INSET = 0.25
 
 
