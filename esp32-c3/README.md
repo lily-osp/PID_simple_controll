@@ -69,7 +69,7 @@ PID and the LEDC setup. Change them in `control/` only.
 > the datasheet forbids it and the 3.3V rail sags badly enough to cause visible
 > jitter whenever USB is absent. See [DIAGNOSTICS.md](DIAGNOSTICS.md).
 
-1. **Hardware Setup**: RPM on GPIO 0 (divider if 5V), ESC on GPIO 1; optional trim on GPIO 2/3
+1. **Hardware Setup**: RPM on GPIO 0 (divider if 5V), ESC on GPIO 1; trim pot on GPIO 3
 2. **Configure**: Review `config.h` and `config_common.h` for motor-specific parameters
 3. **Upload**: Flash using Arduino IDE or PlatformIO
 4. **Monitor**: Open Serial Monitor at 115200 baud to verify startup
@@ -84,7 +84,7 @@ PID and the LEDC setup. Change them in `control/` only.
 - **24V DC supply** for the motor (≥3A recommended)
 - **5V supply or USB** for the ESP32-C3 logic
 - **Resistors 2.2kΩ + 3.3kΩ** (Signal divider, see below)
-- Optional: **10kΩ potentiometer + jumper/switch** (gain trim)
+- Optional: **10kΩ potentiometer** (gain trim)
 
 ### Tested combination
 
@@ -113,9 +113,9 @@ sub-circuits: high-current motor side, Hall sensors, and logic.
  5V ─────────────────── │                      │   ESP32-C3 powered via USB
  GND ────────────────── │                      │   (or 5V pin) — separate from 24V
                         │                      │
- P+ ◄── 24V+ (thick)    │                      │   Optional trim:
- P- ◄── 24V- (thick)    │                      │   3V3──[10k pot]──GND, wiper→GPIO 2
-                        └──────────────────────┘   GPIO 3──[switch]──GND
+ P+ ◄── 24V+ (thick)    │                      │   Trim pot:
+ P- ◄── 24V- (thick)    │                      │   3V3──[10k pot]──GND, wiper→GPIO 3
+                        └──────────────────────┘
 ```
 
 ### Wire-by-wire checklist
@@ -182,27 +182,29 @@ these, add a level shifter (single N-MOSFET + pull-up, or a TXS0102):
 - Verify with a cold motor: phases and PCB should stay cool;
   re-check MA/MB/MC + Ha/Hb/Hc order if the motor coggs or overheats.
 
-### PID sensitivity trim (optional)
+### PID sensitivity trim
 
 Target speed remains `DEFAULT_TARGET_RPM` (1440). The pot only
 scales all three gains by the same factor so you can fine-tune
 stability and steady-state error on the bench or on a production PCB.
 
-Wire a 10K potentiometer wiper to GPIO 2 and a jumper/switch on GPIO 3:
+Wire a 10K potentiometer wiper to GPIO 3:
 
 ```
 3.3V ----[ Pot 10K ]---- GND
               |
-           GPIO 2 (wiper)
-
-GPIO 3 ----[ Switch ]---- GND   (closed = trim active; open = nominal gains)
+           GPIO 3 (wiper)
 ```
 
-With trim active, the pot maps ≈ 0.75x–1.25x on `DEFAULT_KP`,
+The pot is always active and maps ≈ 0.75x–1.25x on `DEFAULT_KP`,
 `DEFAULT_KI`, `DEFAULT_KD` (`PID_SENSITIVITY_MIN/MAX` in `config.h`).
-⚠️ GPIO 2 is a boot-strapping pin on the C3: if the board ever fails
-to boot with the pot connected, add a 1kΩ series resistor on the
-wiper line (or move the pot to GPIO 4 and update `config.h`).
+Mid-travel is ≈ 1.0x, which is also what a board with no pot fitted
+sees (a floating ADC input is clamped to the same range).
+
+⚠️ GPIO 3 is `ADC1_CH3` and is **not** a strapping pin. Do not move the
+wiper to GPIO 2: that is a boot strapping pin and the pot pulls it to
+0 V at the low end of travel, which can stop the board from booting.
+The PCB (`PCB/bldc_esp32_driver`) is wired for GPIO 3.
 
 ### Power-up sequence
 
@@ -274,8 +276,7 @@ The controller runs in a dedicated FreeRTOS task with highest priority (`configM
 ```cpp
 #define RPM_INPUT_PIN       0   // Hall sensor input
 #define PWM_OUTPUT_PIN      1   // ESC control output
-#define POT_ENABLE_PIN        3   // Pull LOW to enable sensitivity trim
-#define POT_SENSITIVITY_PIN   2   // Pot scales Kp/Ki/Kd
+#define POT_SENSITIVITY_PIN   3   // Pot scales Kp/Ki/Kd (ADC1_CH3, always active)
 #define PID_SENSITIVITY_MIN   0.75f
 #define PID_SENSITIVITY_MAX   1.25f
 #define PULSES_PER_REV        4   // Set to motor pole count / 2
@@ -286,7 +287,7 @@ The controller runs in a dedicated FreeRTOS task with highest priority (`configM
 
 **RPM_SAMPLE_MIN_US**: Minimum time to accumulate pulses before computing RPM. Longer = less fluctuation, higher latency. 40000 (40ms) yields ~4 pulses at 1440 RPM.
 
-**PID_SENSITIVITY_MIN / MAX**: Gain multiplier range when trim is enabled. Mid-travel is near 1.0 (nominal gains).
+**PID_SENSITIVITY_MIN / MAX**: Gain multiplier range of the trim pot. Mid-travel is near 1.0 (nominal gains).
 
 ### PID Tuning (`config_common.h`)
 

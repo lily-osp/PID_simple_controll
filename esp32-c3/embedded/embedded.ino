@@ -134,9 +134,8 @@ static void controlLoop(void *parameter) {
     for (;;) {
         float rpm = rpmFilter.update(pcnt_get_rpm());
 
-        // Gain trim is opt-in via GPIO 3, so a unit with no pot fitted simply
-        // runs the nominal gains.
-        float trim = (digitalRead(POT_ENABLE_PIN) == LOW) ? readSensitivityScale() : 1.0f;
+        // Gain trim: the pot is always active; its midpoint is the nominal gain.
+        float trim = readSensitivityScale();
         float kp = DEFAULT_KP * trim;
         float ki = DEFAULT_KI * trim;
         float kd = DEFAULT_KD * trim;
@@ -220,7 +219,8 @@ void setup() {
         DEFAULT_TARGET_RPM * RPM_CAL_SCALE, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, PULSES_PER_REV);
 #endif
 
-    pinMode(POT_ENABLE_PIN, INPUT_PULLUP);
+    pinMode(POT_SENSITIVITY_PIN, INPUT);
+    analogReadResolution(12);
 
     pcnt_init(RPM_INPUT_PIN);
     ledc_init(PWM_OUTPUT_PIN);

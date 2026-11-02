@@ -44,7 +44,8 @@ internally to the JY01). No control port, no GPIO breakouts.
 - **GPIO4 → EL level shift**: EL is pulled up to **+5V** (R33 10 kΩ); GPIO4 drives it
   open-drain through R34 (1 kΩ). Configure GPIO4 as open-drain in firmware.
 - **FG scaling**: JY01 FG (5 V) → R4 2.2 k / R5 3.3 k divider → GPIO0 (RPM in, 3.3 V).
-- **ESP32 pin usage**: GPIO0=RPM (FG), GPIO1=PWM→VR, GPIO2=trim ADC, GPIO3=spare,
+- **ESP32 pin usage**: GPIO0=RPM (FG), GPIO1=PWM→VR, GPIO2=**unconnected** (boot
+  strapping pin, internal pull-up holds it high), GPIO3=trim ADC (ADC1_CH3),
   GPIO4=EL (open-drain), GPIO5=ERR LED. GPIO6–10/20/21 are spare/unconnected.
 - **ERR LED** driven from GPIO5 via R32 (560 Ω); **PWR LED** from +5V via R20 (560 Ω).
 
@@ -72,40 +73,50 @@ Checks performed on the exact fabrication data (`fab/`), all passing:
 - **Unrated 0805 caps on rails** were given explicit ratings: `C12 → 10 µF/25 V` (it sits
   on +12 V), `C11/C19/C20 → 100 nF/50 V`.
 
-### Open issues (decide before ordering)
+### Layout changes applied at audit
 
-1. **Trim pot sits on a strapping pin.** `RV1` wiper → `GPIO2`, which is one of the
-   three ESP32-C3 strapping pins (GPIO2/8/9) and must be high or floating at boot. The
+1. **Trim pot moved off the strapping pin.** `RV1`'s wiper was on `GPIO2`, one of the
+   three ESP32-C3 strapping pins (GPIO2/8/9), which must be high or floating at boot. The
    pot pulls it to 0 V at the low end of travel, so a power cycle with the pot turned
-   down can enter joint-download boot instead of running firmware. `GPIO3` is the only
-   free ADC pin (`ADC1_CH3`), is not a strapping pin, and its pad (U6 pin 12) is 2.54 mm
-   from the current `GPIO2` pad (pin 11) — a two-segment reroute.
-2. **Firmware/board pin mismatch.** Firmware defines `POT_ENABLE_PIN 3`, but the board
-   leaves `GPIO3` unconnected, so with `INPUT_PULLUP` the trim is permanently disabled
-   and `RV1` does nothing. Fixing issue 1 makes `GPIO3` the ADC input, so the enable
-   gate should be dropped in firmware (trim always active, pot midpoint = 1.0×).
-3. **No mounting holes.** Four M3 holes at the corner centres (±35, ±60 mm from centre,
-   i.e. 5 mm from each edge) have ≥3.6 mm clearance to the nearest copper on all four
-   corners, so they can be added without disturbing the routing.
-4. **`EL` (GPIO4) and the ERR LED (GPIO5) are wired but unused by firmware.** `EL` is
-   pulled to +5 V through R33, so the JY01 enable state at power-up depends on the EL
-   polarity of the JY01 itself — confirm before relying on the motor being disabled.
+   down could enter joint-download boot instead of running firmware. The net now goes to
+   `GPIO3` (`ADC1_CH3`, not a strapping pin); only the final 1.31 mm stub was rerouted,
+   the 20 mm trunk is untouched. `GPIO2` is left floating, which is exactly the state its
+   internal boot pull-up wants.
+2. **Firmware followed the pin move.** `POT_SENSITIVITY_PIN` is now 3 and the
+   `POT_ENABLE_PIN` gate is gone — the trim is always active and the pot midpoint is
+   1.0×. Previously the firmware expected the enable on `GPIO3` while the board left it
+   unconnected, so the pot did nothing at all. Both sketches compile (`pio run`,
+   espressif32 7.0.1): control 17.9 % flash / 4.3 % RAM, embedded likewise.
+3. **Four M3 mounting holes added** at the corner-arc centres (5 mm from each edge),
+   NPTH 3.2 mm, marked board-only so they do not appear as schematic-parity extras, with
+   a 1.2 mm copper-free ring so a screw head cannot short the GND pour.
+4. **`C4` shifted 2.4 mm left** because its 10 mm can sat 0.4 mm from the bottom-right
+   hole — an M3 head would have fouled it. Its three track endpoints were snapped to the
+   new pad positions; nothing else moved.
+
+### Remaining note
+
+- **`EL` (GPIO4) and the ERR LED (GPIO5) are wired but unused by firmware.** `EL` is
+  pulled to +5 V through R33 and driven open-drain through R34, so the JY01 enable state
+  at power-up depends on the EL polarity of the JY01 itself — confirm before relying on
+  the motor being disabled at boot. Wiring either up is a firmware change only.
 
 ## Status
 
 - **Schematic**: complete & verified — netlist matches the design table **223/234 pins**
   (floating pins are the 3 unused 74HC14 gate outputs + 8 spare ESP32 GPIOs).
 - **Board**: **fully routed, DRC-clean, fab package generated** — 70.0 mm × 120.0 mm
-  (5 mm rounded corners), 69 footprints.
-  - 1277 traces (4510 mm), 142 vias, 2 zones (GND pour on F.Cu + B.Cu, solid-connected)
+  (5 mm rounded corners), 73 footprints (69 components + 4 M3 mounting holes).
+  - 1277 traces (4507 mm), 142 vias, 2 zones (GND pour on F.Cu + B.Cu, solid-connected)
   - **DRC: 0 violations, 0 unconnected items** (`kicad-cli pcb drc --severity-all`)
   - **Schematic parity: 0 genuine mismatches** — the 268 reported items are cosmetic only
     (schematic nets carry the root-sheet `/` prefix; footprints are reported without their
     library prefix). Verified programmatically: 0 net-name differences, 0 footprint
-    differences after normalisation.
+    differences after normalisation, 0 extra footprints.
   - **Outline**: closed Edge.Cuts loop, 8 segments, 0 open endpoints; **0 pads outside**
     the outline.
-  - **Drills**: 0.3 mm ×142 (vias), 0.8/1.0/1.1/1.2/1.3 mm ×29 (component holes).
+  - **Drills**: 0.3 mm ×142 (vias), 0.8/1.0/1.1/1.2/1.3 mm ×29 (component holes),
+    3.2 mm ×4 (M3 mounting, NPTH).
   - Renders: `render/routed_top.png`, `render/routed_bottom.png`, `render/routed_top_zoom.png`
 
 ### Copper sizing (measured, not assumed)
@@ -209,6 +220,7 @@ bldc_esp32_driver/
 ├── fab/                                    # gerbers, drill, positions, ORDER.md
 ├── tools/gen_sch_full.py, gen_pcb.py, verify_net.py
 ├── tools/final_{incremental,import_ses,widen,settle,minwidth,silk_cleanup}.py
+├── tools/fix_pot_pin_and_holes.py, set_values.py
 ├── tools/fab_package.sh
 ├── fp-lib-table
 └── fp-info-cache

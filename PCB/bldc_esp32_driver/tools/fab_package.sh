@@ -43,6 +43,7 @@ cat > "$OUT/ORDER.md" <<EOF
 | Silkscreen | white |
 | Min track / clearance | 0.2 mm / 0.2 mm |
 | Min drill | 0.3 mm |
+| Mounting holes | 4 x 3.2 mm NPTH (M3), non-plated |
 | Edge clearance | 0.5 mm |
 
 Gerbers: \`bldc_esp32_driver_gerbers.zip\` (drill files included).

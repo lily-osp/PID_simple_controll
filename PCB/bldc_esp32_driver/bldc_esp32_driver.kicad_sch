@@ -7289,12 +7289,12 @@
 	(uuid 238c43e7-123c-4968-ad4e-9a67febbcfc3)
 )
 (wire
-	(pts (xy 175.26 204.47) (xy 177.80 204.47))
+	(pts (xy 175.26 207.01) (xy 177.80 207.01))
 	(stroke (width 0) (type default))
 	(uuid 090202f1-8861-4415-bb4a-91cd939ab070)
 )
 (label "POT_ADC"
-	(at 177.80 204.47 0)
+	(at 177.80 207.01 0)
 	(fields_autoplaced yes)
 	(effects (font (size 1.27 1.27)) (justify left bottom))
 	(uuid cb4e8aae-8aef-486d-9898-e69106f5fada)

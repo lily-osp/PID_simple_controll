@@ -218,16 +218,11 @@ static void printPinState() {
                   digitalRead(RPM_INPUT_PIN) ? "HIGH" : "LOW");
     Serial.printf("GPIO %d (PWM out) : %s\n", PWM_OUTPUT_PIN,
                   digitalRead(PWM_OUTPUT_PIN) ? "HIGH" : "LOW");
-    Serial.printf("GPIO %d (trim)    : %s\n", POT_SENSITIVITY_PIN,
-                  digitalRead(POT_SENSITIVITY_PIN) ? "HIGH" : "LOW");
-    Serial.printf("GPIO %d (trim en) : %s (%s)\n", POT_ENABLE_PIN,
-                  digitalRead(POT_ENABLE_PIN) ? "HIGH" : "LOW",
-                  digitalRead(POT_ENABLE_PIN) == LOW ? "trim active" : "nominal gains");
-    if (POT_ENABLE_PIN == LOW) {
-        Serial.printf("  raw ADC         : %d of 4095 -> scale %.3f\n",
-                      analogRead(POT_SENSITIVITY_PIN),
-                      (float)analogRead(POT_SENSITIVITY_PIN) / 4095.0f);
-    }
+    int potRaw = analogRead(POT_SENSITIVITY_PIN);
+    float potScale = PID_SENSITIVITY_MIN +
+                     ((float)potRaw / 4095.0f) * (PID_SENSITIVITY_MAX - PID_SENSITIVITY_MIN);
+    Serial.printf("GPIO %d (trim)    : ADC %4d of 4095 -> scale %.3f\n", POT_SENSITIVITY_PIN,
+                  potRaw, potScale);
     Serial.printf("uptime           : %.1f s\n", (millis() - ctrl.bootMillis) / 1000.0);
     Serial.println();
 }

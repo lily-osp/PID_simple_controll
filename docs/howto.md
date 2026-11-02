@@ -39,7 +39,7 @@ Complete guide for assembling, wiring, programming, and tuning the BLDC Motor PI
   - 1000µF electrolytic for motor power rail (startup surge protection)
 - **Emergency Stop Switch**: For safe testing and operation
 - **Mounting Hardware**: Secure motor during testing (prevents injuries from unexpected starts)
-- 10kΩ potentiometer on GPIO 2 (bench build: sensitivity trim, with GPIO 3 pulled LOW to enable)
+- 10kΩ potentiometer on GPIO 3 (bench build: sensitivity trim, always active)
 
 **Typical Cost**: $3-7
 
@@ -91,8 +91,10 @@ Hall Sensor (5V)
 
 | Component | ESP32-C3 Pin | Notes |
 |-----------|--------------|-------|
-| Potentiometer wiper | GPIO 2 (ADC1_CH2) | Trims PID gain scale (0.75x-1.25x) |
-| Enable switch | GPIO 3 | Pull LOW to enable trim (INPUT_PULLUP) |
+| Potentiometer wiper | GPIO 3 (ADC1_CH3) | Trims PID gain scale (0.75x-1.25x), always active |
+
+Do not use GPIO 2 for the wiper: it is a boot strapping pin, and the pot pulls it
+to 0 V at the low end of travel, which can prevent the board from booting.
 
 ## Software Setup
 
@@ -180,15 +182,13 @@ arduino-cli upload  -p /dev/ttyACM0 -b esp32:esp32:nologo_esp32c3_super_mini esp
 ### Method 2: Live Sensitivity Trim (Bench Build)
 
 **Setup**:
-1. Wire a 10kΩ potentiometer to GPIO 2 (see wiring section)
-2. Wire an enable switch to GPIO 3 (closed to GND = trim enabled)
-3. Upload the bench build (`esp32-c3/control/`)
+1. Wire a 10kΩ potentiometer wiper to GPIO 3 (see wiring section)
+2. Upload the bench build (`esp32-c3/control/`)
 
 **Procedure**:
-1. Enable trim mode (close GPIO 3 switch)
-2. Watch telemetry on the serial console
-3. Adjust the potentiometer to scale PID gains live (0.75x-1.25x)
-4. Find the sweet spot, then bake the resulting values into `config_common.h`
+1. Watch telemetry on the serial console
+2. Adjust the potentiometer to scale PID gains live (0.75x-1.25x)
+3. Find the sweet spot, then bake the resulting values into `config_common.h`
 
 Note: the trim scales all gains together; individual Kp/Ki/Kd values must be set at compile time.
 

@@ -199,8 +199,8 @@ static void controlLoop(void *parameter) {
 
         case MODE_AUTO:
         default: {
-            // Gain trim: nominal gains unless GPIO 3 pulls the trim active.
-            float sens = (digitalRead(POT_ENABLE_PIN) == LOW) ? readSensitivityScale() : 1.0f;
+            // Gain trim: the pot is always active; its midpoint is the nominal gain.
+            float sens = readSensitivityScale();
             float kp = ctrl.cmdKp * sens;
             float ki = ctrl.cmdKi * sens;
             float kd = ctrl.cmdKd * sens;
@@ -287,7 +287,8 @@ void setup() {
     ctrl.telHz = TELEMETRY_DEFAULT_HZ;
     ctrl.bootMillis = millis();
 
-    pinMode(POT_ENABLE_PIN, INPUT_PULLUP);
+    pinMode(POT_SENSITIVITY_PIN, INPUT);
+    analogReadResolution(12);
 
     pcnt_init(RPM_INPUT_PIN);
     ledc_init(PWM_OUTPUT_PIN);
