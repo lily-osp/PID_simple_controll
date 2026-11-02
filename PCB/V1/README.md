@@ -260,6 +260,12 @@ from that catalogue can fit them: **U1 (JY01)**, **U3 (JY213L)** and
 **Q2–Q4 (JY2605M)**. They are only sold through Alibaba/AliExpress/specialist
 vendors. Either hand-solder them or supply them as consigned parts.
 
+**Test points.** Ten 1.5 mm probe pads are on the top side for bring-up
+(`V_IN`, `PNEG`, `+12V`, `+5V`, `+3.3V`, `VR`, `PWM_OUT`, `RPM_IN`, `ISENSE_F`,
+`GND`). They are board-only and excluded from the BOM/CPL, so they cost nothing.
+Positions, expected voltages and a staged bring-up procedure are in
+[`TESTPLAN.md`](TESTPLAN.md).
+
 The through-hole parts (C1–C5, U7, U8, RV1) are in the CPL, but JLCPCB's
 economical PCBA is SMD-only — use their through-hole option or solder those by
 hand as well.
