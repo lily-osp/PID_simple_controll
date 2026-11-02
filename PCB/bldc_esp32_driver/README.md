@@ -208,6 +208,14 @@ fanout corridor, and placing it in line with the FETs makes them unreachable.
   as **zip files named `.stpZ`**, not zstd. Unzip the ones the board references and point
   `KICAD9_3DMODEL_DIR` at the result:
   `KICAD9_3DMODEL_DIR=<dir> kicad-cli pcb render ...`
+  This project's models are installed at `~/.local/share/kicad/3dmodels` and the path is
+  registered in `~/.config/kicad/9.0/kicad_common.json`, so a plain render works.
+- **U6 (ESP32-C3 SuperMini) has no official 3D model.** It is a third-party board, so it
+  is not in the Espressif library (which covers ESP32-C3-MINI-1/WROOM-02 only), and the
+  GrabCAD/Printables/SnapEDA models need an account. A dimensionally correct
+  representative body (22.5 x 18 x 1.6 mm + USB-C + antenna area) is used instead,
+  from `Custom.3dshapes/ESP32-C3-SuperMini.wrl`. It is for visualisation, not mechanical
+  clearance work.
 - The mask gerbers are emitted as **G36/G37 region fills**, not aperture flashes. Counting
   `%ADD`/`D03` in them reports zero and looks catastrophic; count `G36` instead.
 

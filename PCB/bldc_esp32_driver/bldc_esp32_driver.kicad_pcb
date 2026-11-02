@@ -373,6 +373,17 @@
 			(uuid "fb2b92f5-4d38-4113-99a1-1b6b7affe7a8")
 		)
 		(embedded_fonts no)
+		(model "${KICAD9_3DMODEL_DIR}/Custom.3dshapes/ESP32-C3-SuperMini.wrl"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
 	)
 	(footprint "D_SOD-123"
 		(layer "F.Cu")
