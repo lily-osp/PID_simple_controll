@@ -61,6 +61,8 @@ Checks performed on the exact fabrication data (`fab/`), all passing:
 | Pads outside outline | 0 |
 | Orphan nets (1 pad) | none |
 | Fab files | 11 gerbers (4 copper) + 1 drill (Excellon, metric, decimal) + job file |
+| Solder mask | 238 front / 33 rear openings (205 SMD + 29 THT + 4 NPTH); 0.05 mm expansion, 0.10 mm min web |
+| Paste | 205 front apertures (1:1 with the SMD pads), none on the rear |
 
 ### Electrical fixes applied at audit
 
@@ -197,6 +199,11 @@ fanout corridor, and placing it in line with the FETs makes them unreachable.
   power-stage placement.
 - On a 4-layer board the zones can end up as several filled islands. Stitch them to the
   In1 plane with GND vias, otherwise DRC reports the pour as unconnected.
+- KiCad writes the inner copper layers with their internal layer IDs (`Copper,L5,Inr`,
+  `L7`) into the `.gbrjob` even though the gerbers themselves carry the correct `L2`/`L3`.
+  `fab_package.sh` rewrites the job file so CAM cannot read a 4-layer stack as 8-layer.
+- The mask gerbers are emitted as **G36/G37 region fills**, not aperture flashes. Counting
+  `%ADD`/`D03` in them reports zero and looks catastrophic; count `G36` instead.
 
 ## Ordering
 

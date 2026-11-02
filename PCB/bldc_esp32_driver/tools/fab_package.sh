@@ -33,6 +33,12 @@ kicad-cli pcb export pos \
   --output "$OUT/positions.csv" --format csv --units mm --side both \
   --use-drill-file-origin "$PCB" >/dev/null
 
+# KiCad writes the inner copper layers with their internal layer IDs (L5/L7)
+# in the job file while the gerbers themselves carry the correct L2/L3. Make the
+# job file agree with the gerbers so CAM cannot read a 4-layer stack as 8-layer.
+sed -i 's/Copper,L5,Inr/Copper,L2,Inr/; s/Copper,L7,Inr/Copper,L3,Inr/' \
+  "$OUT/gerbers/bldc_esp32_driver-job.gbrjob"
+
 ( cd "$OUT/gerbers" && zip -q -r "../bldc_esp32_driver_gerbers.zip" . )
 
 cat > "$OUT/ORDER.md" <<EOF
