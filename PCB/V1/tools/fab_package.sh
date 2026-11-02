@@ -33,6 +33,18 @@ kicad-cli pcb export pos \
   --output "$OUT/positions.csv" --format csv --units mm --side both \
   --use-drill-file-origin "$PCB" >/dev/null
 
+# --- PCBA files in JLCPCB's upload format -----------------------------------
+kicad-cli sch export bom --output "$OUT/bom_raw.csv" \
+  --fields "Reference,Value,Footprint,LCSC Part" \
+  --labels "Refs,Value,Footprint,LCSC" \
+  --group-by "Value,Footprint,LCSC" --exclude-dnp \
+  bldc_esp32_driver.kicad_sch >/dev/null
+
+kicad-cli pcb export pos --output "$OUT/cpl_raw.csv" --format csv --units mm \
+  --side front --use-drill-file-origin "$PCB" >/dev/null
+
+python3 tools/make_jlcpcb_assembly.py "$OUT" "$PCB"
+
 # KiCad writes the inner copper layers with their internal layer IDs (L5/L7)
 # in the job file while the gerbers themselves carry the correct L2/L3. Make the
 # job file agree with the gerbers so CAM cannot read a 4-layer stack as 8-layer.
@@ -60,6 +72,42 @@ cat > "$OUT/ORDER.md" <<EOF
 
 Gerbers: \`bldc_esp32_driver_gerbers.zip\` (drill files included).
 Assembly positions: \`positions.csv\` (mm, drill origin).
+
+## Assembly (PCBA)
+
+**Left unpopulated on purpose:**
+
+| Ref | Part | Why |
+|---|---|---|
+| U6 | ESP32-C3 SuperMini | third-party module, fitted by the user |
+| J3 | 1x05 2.54 mm header | no header wanted - wires soldered to the pads |
+| J5 | MX126 2-pin terminal | no header wanted - power wires soldered directly |
+| J6 | MX126 3-pin terminal | no header wanted - motor wires soldered directly |
+
+**Not available from LCSC - JLCPCB cannot assemble these:**
+
+| Ref | Part | Note |
+|---|---|---|
+| U1 | JY01 (SOP-16) | JYQD family IC, not in the LCSC catalogue |
+| U3 | JY213L (TSSOP-20) | ditto |
+| Q2-Q4 | JY2605M (DFN-8) | ditto |
+
+Those five parts must be hand-soldered, or supplied to JLCPCB as consigned
+parts. Everything else is standard and can be assembled.
+
+**Through-hole parts** (C1-C5, U7, U8, RV1) appear in the CPL, but JLCPCB's
+economical PCBA covers SMD only - either use their through-hole option or
+solder these by hand.
+
+Assembly files:
+
+| File | Contents |
+|---|---|
+| \`bom_jlcpcb.csv\` | 27 lines, columns Comment / Designator / Footprint / LCSC Part # |
+| \`cpl_jlcpcb.csv\` | 65 placements, origin at the board's bottom-left corner, Y up |
+
+The **LCSC Part # column is empty** - the schematic carries no LCSC numbers, so
+they must be assigned before the BOM can be uploaded.
 EOF
 
 echo "package ready in $OUT/"

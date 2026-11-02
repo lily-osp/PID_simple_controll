@@ -242,6 +242,32 @@ Output in `fab/`:
 Verification already passed on this exact board: 0 DRC violations, 0 unconnected items,
 closed outline, 0 pads outside the outline, 0 genuine schematic-parity mismatches.
 
+### Assembly (PCBA)
+
+The board is set up to be ordered **assembled**, with these deliberately left
+unpopulated (marked DNP in both the schematic and the board, so the BOM and CPL
+exclude them automatically):
+
+| Ref | Part | Why |
+|---|---|---|
+| U6 | ESP32-C3 SuperMini | third-party module, fitted by hand |
+| J3 | 1x05 2.54 mm header | no headers wanted — wires go straight to the pads |
+| J5 | MX126 2-pin terminal | power wires soldered directly |
+| J6 | MX126 3-pin terminal | motor wires soldered directly |
+
+**Five parts cannot be bought from LCSC**, so no assembly house that sources
+from that catalogue can fit them: **U1 (JY01)**, **U3 (JY213L)** and
+**Q2–Q4 (JY2605M)**. They are only sold through Alibaba/AliExpress/specialist
+vendors. Either hand-solder them or supply them as consigned parts.
+
+The through-hole parts (C1–C5, U7, U8, RV1) are in the CPL, but JLCPCB's
+economical PCBA is SMD-only — use their through-hole option or solder those by
+hand as well.
+
+`fab/bom_jlcpcb.csv` (27 lines) and `fab/cpl_jlcpcb.csv` (65 placements) are in
+JLCPCB's upload format. The **LCSC Part # column is still empty** — the design
+carries no LCSC numbers, so they have to be assigned before uploading.
+
 > **ERC note**: the schematic reports 28 ERC items, all accounted for — 11 unconnected
 > pins are the intentionally-unused 74HC14 gates and spare ESP32 GPIOs; 3 are library
 > version/resolution warnings; the rest are power-flag bookkeeping (`V_IN` and the JY01

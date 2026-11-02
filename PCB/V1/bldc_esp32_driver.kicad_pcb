@@ -219,7 +219,7 @@
 				)
 			)
 		)
-		(attr smd)
+		(attr smd exclude_from_pos_files exclude_from_bom dnp)
 		(fp_line
 			(start 9 -10.44)
 			(end 9 12.08)
@@ -2356,7 +2356,7 @@
 				)
 			)
 		)
-		(attr through_hole)
+		(attr through_hole exclude_from_pos_files exclude_from_bom dnp)
 		(fp_line
 			(start 12.62 -4.12)
 			(end 12.62 3.92)
@@ -21253,7 +21253,7 @@
 				)
 			)
 		)
-		(attr through_hole)
+		(attr through_hole exclude_from_pos_files exclude_from_bom dnp)
 		(fp_line
 			(start 7.62 -4.12)
 			(end 7.62 3.92)
@@ -22262,7 +22262,7 @@
 				)
 			)
 		)
-		(attr through_hole)
+		(attr through_hole exclude_from_pos_files exclude_from_bom dnp)
 		(fp_line
 			(start 1.38 1.27)
 			(end 1.38 11.54)
