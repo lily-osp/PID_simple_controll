@@ -105,8 +105,11 @@ Checks performed on the exact fabrication data (`fab/`), all passing:
 
 ## Status
 
-**Two board revisions exist.** `v1` (tag `v1`, commit 837cf5a) is the 70 × 120 mm
-2-layer board; `v2` (this branch) is the 64 × 98 mm 4-layer board.
+**Folder layout:** `PCB/V1/` is this board. When a smaller revision is attempted it goes
+in `PCB/V2/` alongside it, so both stay buildable and comparable.
+
+**Two board revisions exist.** The 70 × 120 mm 2-layer board is preserved at git tag `v1`
+(commit 837cf5a). This folder is the 64 × 98 mm 4-layer board.
 
 | | v1 (tag `v1`) | v2 (this branch) |
 |---|---|---|
@@ -132,6 +135,9 @@ Checks performed on the exact fabrication data (`fab/`), all passing:
   - **Drills**: 0.3 mm ×110 and 0.4 mm ×15 (vias), 0.8/1.0/1.1/1.2/1.3 mm ×29
     (component holes), 3.2 mm ×4 (M3 mounting, NPTH).
   - Renders: `render/routed_top.png`, `render/routed_bottom.png`
+  - **Bottom silkscreen**: OSP cloud logo (16 mm, vectorised from
+    `OSP_1600.png` with potrace into 14 filled polygons) and the credit
+    `designed by : github.com/1999azzar`, both on `B.SilkS`.
 
 ### Copper sizing (measured, not assumed)
 
