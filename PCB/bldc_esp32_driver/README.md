@@ -57,10 +57,10 @@ Checks performed on the exact fabrication data (`fab/`), all passing:
 |---|---|
 | DRC (`--severity-all`) | 0 violations, 0 unconnected items |
 | Schematic parity | 0 genuine (268 cosmetic: root-sheet `/` prefix, footprint lib prefix) |
-| Outline closure | 8 Edge.Cuts segments, 0 open endpoints, 70.0 × 120.0 mm |
+| Outline closure | closed Edge.Cuts loop, 0 open endpoints, 64.1 × 98.1 mm |
 | Pads outside outline | 0 |
 | Orphan nets (1 pad) | none |
-| Fab files | 9 gerbers + 1 drill (Excellon, metric, decimal) + job file |
+| Fab files | 11 gerbers (4 copper) + 1 drill (Excellon, metric, decimal) + job file |
 
 ### Electrical fixes applied at audit
 
@@ -103,95 +103,112 @@ Checks performed on the exact fabrication data (`fab/`), all passing:
 
 ## Status
 
+**Two board revisions exist.** `v1` (tag `v1`, commit 837cf5a) is the 70 × 120 mm
+2-layer board; `v2` (this branch) is the 64 × 98 mm 4-layer board.
+
+| | v1 (tag `v1`) | v2 (this branch) |
+|---|---|---|
+| Size | 70 × 120 mm (8400 mm²) | **64 × 98 mm (6272 mm², −25 %)** |
+| Layers | 2 | **4** (In1 = solid GND plane) |
+| Signal layers | 2 | 3 (F.Cu, In2.Cu, B.Cu) |
+| Phase copper (avg) | 0.33–0.39 mm | **0.74–0.77 mm** |
+| Traces / vias | 1277 / 142 | 817 / 125 |
+| DRC | 0 / 0 | 0 / 0 |
+
 - **Schematic**: complete & verified — netlist matches the design table **223/234 pins**
   (floating pins are the 3 unused 74HC14 gate outputs + 8 spare ESP32 GPIOs).
-- **Board**: **fully routed, DRC-clean, fab package generated** — 70.0 mm × 120.0 mm
+- **Board (v2)**: **fully routed, DRC-clean, fab package generated** — 64.1 mm × 98.1 mm
   (5 mm rounded corners), 73 footprints (69 components + 4 M3 mounting holes).
-  - 1277 traces (4507 mm), 142 vias, 2 zones (GND pour on F.Cu + B.Cu, solid-connected)
+  - 817 traces (3023 mm), 125 vias, 4 zones (solid GND plane on In1 + GND pours on
+    F.Cu / B.Cu / In2.Cu)
   - **DRC: 0 violations, 0 unconnected items** (`kicad-cli pcb drc --severity-all`)
   - **Schematic parity: 0 genuine mismatches** — the 268 reported items are cosmetic only
     (schematic nets carry the root-sheet `/` prefix; footprints are reported without their
     library prefix). Verified programmatically: 0 net-name differences, 0 footprint
     differences after normalisation, 0 extra footprints.
-  - **Outline**: closed Edge.Cuts loop, 8 segments, 0 open endpoints; **0 pads outside**
-    the outline.
-  - **Drills**: 0.3 mm ×142 (vias), 0.8/1.0/1.1/1.2/1.3 mm ×29 (component holes),
-    3.2 mm ×4 (M3 mounting, NPTH).
-  - Renders: `render/routed_top.png`, `render/routed_bottom.png`, `render/routed_top_zoom.png`
+  - **Outline**: closed Edge.Cuts loop, 0 open endpoints; **0 pads outside** the outline.
+  - **Drills**: 0.3 mm ×110 and 0.4 mm ×15 (vias), 0.8/1.0/1.1/1.2/1.3 mm ×29
+    (component holes), 3.2 mm ×4 (M3 mounting, NPTH).
+  - Renders: `render/routed_top.png`, `render/routed_bottom.png`
 
 ### Copper sizing (measured, not assumed)
 
-Power copper is widened to the largest width the layout allows, validated by DRC rather
-than by eye. Length-weighted width distribution of the motor phases:
+v2 gives the phases a dedicated corridor, so they are no longer starved by the 2-layer
+clearance wall. Length-weighted averages:
 
-| Net | < 0.25 mm | 0.25–0.39 mm | 0.40–0.59 mm | ≥ 0.60 mm | avg | max |
-|---|---|---|---|---|---|---|
-| PH_A | 1 % | 84 % | 1 % | 15 % | 0.33 mm | 0.80 mm |
-| PH_B | 1 % | 80 % | 0 % | 19 % | 0.35 mm | 0.80 mm |
-| PH_C | 2 % | 56 % | 2 % | 40 % | 0.39 mm | 0.60 mm |
+| Net | v1 avg | **v2 avg** | v2 min | v2 max |
+|---|---|---|---|---|
+| PH_A | 0.33 mm | **0.75 mm** | 0.25 mm | 0.80 mm |
+| PH_B | 0.35 mm | **0.74 mm** | 0.25 mm | 0.80 mm |
+| PH_C | 0.39 mm | **0.77 mm** | 0.25 mm | 0.80 mm |
+| V_IN | 0.80 mm | **0.79 mm** | 0.65 mm | 0.80 mm |
+| PNEG | 0.80 mm | **0.80 mm** | 0.80 mm | 0.80 mm |
+| +12V / +5V | 0.57 mm | 0.40 mm | 0.40 mm | 0.40 mm |
 
-`V_IN` and `PNEG` are **uniform 0.80 mm**; `+12V`/`+5V` average 0.57 mm.
+> **Current capability.** The phases now run at 0.75 mm average with only short
+> (sub-millimetre) necks at the driver's 0.65 mm-pitch pads. On **2 oz outer copper** that
+> is roughly **4 A per phase**, up from ~2.6 A on v1. The `+12V`/`+5V` rails are thinner
+> than v1 (0.40 mm) because they are logic/gate-drive supplies: 0.40 mm on 2 oz carries
+> ~1.5 A, and the actual load is a few hundred mA.
 
-> **Current capability — read this before choosing copper weight.** Capacity is set by
-> the narrowest section, and ~80 % of each phase runs at 0.25–0.39 mm. That is about
-> **1.3 A per phase on 1 oz** and **2.6 A on 2 oz**. The corridors are geometrically
-> saturated: a fine-grained widening pass (0.30 mm → 0.80 mm in 0.05 mm steps, DRC
-> re-validated at every step) can only raise ~1 % of the phase length further, because
-> adjacent 0.2 mm-clearance copper leaves no room. Order **2 oz copper** if the motor
-> draws more than ~1 A per phase. Going beyond ~2.6 A needs a layout change (wider
-> corridors for the phases, or 4 layers), not different traces in this placement.
-
-
-## Component placement (left → right signal flow)
+## Component placement (v2, 64 × 98 mm)
 
 | Zone | Components |
 |---|---|
-| Left edge | J3 (Hall port) |
-| Left-mid | Hall amp: R21–R31, C16–C20, U4 (LM324), U5 (74HC14) |
-| Center | U1 (JY01) → R8–R13 → U3 (JY213L) → R14–R19 → Q2/Q3/Q4 (JY2605M) |
-| Center-right | bootstrap D1–D3 + C13–C15 |
-| Right | J5 (power), J6 (motor), C1/C2/C5 bulk, R1 shunt, U8/U7 regulators, C3/C4/C11/C12 |
-| Bottom | U6 (ESP32-C3), U2 (CSD13380F3), RV1 trim, LEDs, level-shift |
+| Top edge | J5 (power in), J6 (motor out), M3 holes in the corners |
+| Bottom edge | J3 (Hall port) |
+| Left column | C1/C2/C5 bulk → U8 (7812) → C3 → U7 (7805) → C4, i.e. the whole power chain |
+| Under J6 | Q2/Q3/Q4 (JY2605M) with R1 shunt |
+| Right of the FETs | U3 (JY213L), bootstrap C13–C15 + D1–D3, gate resistors R14–R19 |
+| Middle | U1 (JY01) + R8–R13, then the Hall amp (U4 LM324, U5 74HC14, R21–R31) |
+| Bottom | U6 (ESP32-C3), U2, RV1, LEDs |
 
-## Routing pipeline (reproducible)
+`U3` sits clear of the FET row on purpose: its 0.65 mm-pitch phase-sense pins need a
+fanout corridor, and placing it in line with the FETs makes them unreachable.
+
+## Routing pipeline (reproducible, v2)
 
 1. `gen_sch_full.py` — regenerate schematic (netlist-verified).
-2. `gen_pcb.py` — regenerate placement-only board (**only when re-planning from scratch**;
-   never run it over a user-arranged placement).
-3. `setup_netclasses.py` — assign net classes + export `board.dsn`.
-4. `final_incremental.py` — rip the nets affected by a placement change, drop the GND
-   pours, export the DSN, add the wide `pwr_phase` class and mark all remaining copper
-   `(type protect)` so the router cannot disturb the approved routing.
-5. FreeRouting **2.1.0** on **Java 21**: `java -jar freerouting.jar -de board.dsn -do board.ses -mt 1`
-   (single-threaded — v2.1.0's multi-threaded optimizer is known to create clearance violations).
-6. `final_import_ses.py` — import the session, restore + refill the pours.
-7. `final_widen.py` / `final_minwidth.py` — staged widening using the DRC as the oracle.
-8. `final_silk_cleanup.py` — clear silkscreen warnings.
-9. `fab_package.sh [--2oz]` — gerbers + drill + positions + `fab/ORDER.md`.
+2. `compact_4l.py` — the v2 placement + 64 × 98 mm rounded outline, with a courtyard
+   clash report (`--check` reports without saving).
+3. `route_prep_4l.py` — export the DSN and inject width classes. **In1.Cu is set to
+   `power`**, so FreeRouting will not put signal traces on it and it stays a solid plane.
+4. FreeRouting **2.1.0** on Java 21:
+   `java -jar freerouting.jar -de board.dsn -do board.ses -mp 40 -mt 1`
+   (single-threaded; the multi-threaded optimizer creates clearance violations).
+5. `import_4l.py` — import the session, (re)create the GND plane + pours, refill.
+6. `fix_open_nets_4l.py NET...` — rip a few nets and re-route them with everything else
+   frozen, when the router leaves a handful open.
+7. `silk_4l.py` — hide passive reference designators and clear silkscreen warnings.
+8. `fab_package.sh [--2oz]` — gerbers + drill + positions + `fab/ORDER.md`.
 
-**Two things that cost hours, documented so they don't again:**
+**Five things that cost hours, documented so they don't again:**
 
-- KiCad exports a GND pour as a full-board Specctra `(plane ...)` on **both** layers. If
-  the pour is present during export, FreeRouting sees an occupied board and fails whole
-  nets. Remove pours before export and refill afterwards.
-- A full re-route from scratch at 0.8 mm power widths **cannot converge** here (plateaus
-  at 24–38 unrouted). Preserve the routed board and route only the nets a placement change
-  actually touches; that lands at 0 unrouted.
-
-The committed board reflects the **user's hand-arranged placement** (69 components moved
-in KiCad); the gen_pcb generator layout is only a fallback.
+- KiCad exports a GND pour as a full-board Specctra `(plane ...)` on **every** copper
+  layer. If the pours are present during export, FreeRouting sees an occupied board and
+  plateaus at ~90+ unrouted. Remove the zones before export, refill afterwards.
+- `board.Remove(item)` silently does nothing in this pcbnew build. Use `board.Delete(item)`
+  — the failure mode is invisible (the board keeps its old tracks) and costs a full
+  routing run to notice.
+- FreeRouting can finish routing and then hang before writing the `.ses`. The cause is
+  stale `java` processes from earlier runs; `kill -9` every `java` before starting.
+- A `0.65 mm`-pitch TSSOP cannot fan out three sense pins into a via between adjacent
+  pads. It needs ~3 mm of clear corridor above the pin row; that is what drove the
+  power-stage placement.
+- On a 4-layer board the zones can end up as several filled islands. Stitch them to the
+  In1 plane with GND vias, otherwise DRC reports the pour as unconnected.
 
 ## Ordering
 
 ```bash
-./tools/fab_package.sh --2oz     # or without --2oz for 1 A/phase
+./tools/fab_package.sh --2oz     # 2 oz outer copper; drop the flag for 1 oz
 ```
 
 Output in `fab/`:
 
 | File | Contents |
 |---|---|
-| `bldc_esp32_driver_gerbers.zip` | 9 gerbers (F/B Cu, mask, silk, paste, Edge.Cuts) + `.drl` |
+| `bldc_esp32_driver_gerbers.zip` | 11 gerbers (4 copper, 2 mask, 2 silk, 2 paste, Edge.Cuts) + `.drl` |
 | `positions.csv` | assembly centroids, mm, drill origin |
 | `ORDER.md` | board spec sheet to hand to the fab |
 
@@ -208,19 +225,18 @@ closed outline, 0 pads outside the outline, 0 genuine schematic-parity mismatche
 
 ```
 bldc_esp32_driver/
-├── bldc_esp32_driver.kicad_sch    # schematic (rebuilt from scratch)
-├── bldc_esp32_driver.kicad_pcb    # board (routed, widened, DRC-clean)
+├── bldc_esp32_driver.kicad_sch    # schematic
+├── bldc_esp32_driver.kicad_pcb    # board (v2: 64 x 98 mm, 4 layers, DRC-clean)
 ├── bldc_esp32_driver.kicad_pro
-├── bldc_esp32_driver.kicad_prl
-├── bldc_esp32_driver-erc.rpt
 ├── README.md
 ├── footprints/ESP32-C3-SuperMini.kicad_mod
-├── footprints/JY2605M_DFN8_5x6.kicad_mod   # DFN-8 5×6 half-bridge (no exact lib match)
-├── render/routed_{top,bottom,top_zoom}.png # 3D renders of the routed board
+├── footprints/JY2605M_DFN8_5x6.kicad_mod   # DFN-8 5x6 half-bridge (no exact lib match)
+├── render/routed_{top,bottom}.png
 ├── fab/                                    # gerbers, drill, positions, ORDER.md
 ├── tools/gen_sch_full.py, gen_pcb.py, verify_net.py
+├── tools/compact_4l.py, route_prep_4l.py, import_4l.py, fix_open_nets_4l.py
+├── tools/silk_4l.py, set_values.py, fix_pot_pin_and_holes.py
 ├── tools/final_{incremental,import_ses,widen,settle,minwidth,silk_cleanup}.py
-├── tools/fix_pot_pin_and_holes.py, set_values.py
 ├── tools/fab_package.sh
 ├── fp-lib-table
 └── fp-info-cache

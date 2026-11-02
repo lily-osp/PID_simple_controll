@@ -2,10 +2,10 @@
 
 | Parameter | Value |
 |---|---|
-| Size | 70 x 120 mm |
-| Layers | 2 (F.Cu / B.Cu) |
+| Size | 64 x 98 mm |
+| Layers | **4** (F.Cu / In1.Cu / In2.Cu / B.Cu) |
 | Thickness | 1.6 mm |
-| Copper | **2oz** |
+| Copper | **2oz outer / 1oz inner** |
 | Surface finish | HASL lead-free |
 | Soldermask | green (any) |
 | Silkscreen | white |

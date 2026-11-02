@@ -6,6 +6,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 PCB=bldc_esp32_driver.kicad_pcb
 OUT=fab
+SIZE=$(python3 -c "
+import sys; sys.path.insert(0,'/usr/lib/python3/dist-packages')
+import pcbnew
+b=pcbnew.LoadBoard('bldc_esp32_driver.kicad_pcb')
+bb=b.GetBoardEdgesBoundingBox()
+print(f'{bb.GetWidth()/1e6:.0f} x {bb.GetHeight()/1e6:.0f} mm')" 2>/dev/null)
 COPPER_NOTE="1oz"
 [ "${1:-}" = "--2oz" ] && COPPER_NOTE="2oz"
 
@@ -14,7 +20,7 @@ mkdir -p "$OUT/gerbers"
 
 kicad-cli pcb export gerbers \
   --output "$OUT/gerbers/" \
-  --layers "F.Cu,B.Cu,F.Mask,B.Mask,F.Silkscreen,B.Silkscreen,F.Paste,B.Paste,Edge.Cuts" \
+  --layers "F.Cu,In1.Cu,In2.Cu,B.Cu,F.Mask,B.Mask,F.Silkscreen,B.Silkscreen,F.Paste,B.Paste,Edge.Cuts" \
   "$PCB" >/dev/null
 
 kicad-cli pcb export drill \
@@ -34,10 +40,10 @@ cat > "$OUT/ORDER.md" <<EOF
 
 | Parameter | Value |
 |---|---|
-| Size | 70 x 120 mm |
-| Layers | 2 (F.Cu / B.Cu) |
+| Size | $SIZE |
+| Layers | **4** (F.Cu / In1.Cu / In2.Cu / B.Cu) |
 | Thickness | 1.6 mm |
-| Copper | **$COPPER_NOTE** |
+| Copper | **$COPPER_NOTE outer / 1oz inner** |
 | Surface finish | HASL lead-free |
 | Soldermask | green (any) |
 | Silkscreen | white |
