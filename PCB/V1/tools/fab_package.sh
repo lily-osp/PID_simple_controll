@@ -110,5 +110,15 @@ The **LCSC Part # column is empty** - the schematic carries no LCSC numbers, so
 they must be assigned before the BOM can be uploaded.
 EOF
 
+# --- refresh the 3D renders so they can never go stale -----------------------
+mkdir -p render
+kicad-cli pcb render --side top    --quality high --width 2400 --height 1800 \
+  -o render/routed_top.png "$PCB" >/dev/null 2>&1 && echo "  render/routed_top.png"
+kicad-cli pcb render --side bottom --quality high --width 2400 --height 1800 \
+  -o render/routed_bottom.png "$PCB" >/dev/null 2>&1 && echo "  render/routed_bottom.png"
+kicad-cli pcb render --side top --quality high --width 2400 --height 1800 \
+  --zoom 2.4 --pivot "0,-1,0" -o render/routed_top_zoom.png "$PCB" >/dev/null 2>&1 \
+  && echo "  render/routed_top_zoom.png"
+
 echo "package ready in $OUT/"
 ls -la "$OUT" "$OUT/gerbers"

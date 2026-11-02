@@ -265,8 +265,28 @@ economical PCBA is SMD-only — use their through-hole option or solder those by
 hand as well.
 
 `fab/bom_jlcpcb.csv` (27 lines) and `fab/cpl_jlcpcb.csv` (65 placements) are in
-JLCPCB's upload format. The **LCSC Part # column is still empty** — the design
-carries no LCSC numbers, so they have to be assigned before uploading.
+JLCPCB's upload format.
+
+**LCSC part numbers: 20 of 27 lines are filled**, each verified against an actual
+LCSC product page (see `tools/lcsc_map.csv` for the mapping and manufacturer
+part). Still blank:
+
+| Line | Why |
+|---|---|
+| C1, C2 (480 µF/63 V) | value is unusual — 470 µF is the standard; lead pitch of the candidates could not be confirmed |
+| C3–C5 (220 µF/50 V) | ditto, pitch unconfirmed |
+| R1 (R005 2512) | no 5 mΩ 2512 shunt found in the catalogue |
+| U1, U3, Q2–Q4 | not in the LCSC catalogue at all (see above) |
+| U2 | see the footprint problem below |
+
+The 0805 passives, LEDs, 1N4148, LM324, 74HC14, 7805/7812 and the trim pot all
+have confirmed numbers.
+
+> **U2 footprint mismatch.** The schematic says `CSD13380F3`, which is a
+> TI FemtoFET measuring **0.73 × 0.64 mm** — but the footprint is **SOT-23-3**.
+> Those cannot be the same part. Either the value is a copy-paste from a
+> reference design and the real part is a SOT-23 N-MOSFET (2N7002, AO3400…),
+> or the footprint is wrong. Needs a decision before ordering.
 
 > **ERC note**: the schematic reports 28 ERC items, all accounted for — 11 unconnected
 > pins are the intentionally-unused 74HC14 gates and spare ESP32 GPIOs; 3 are library

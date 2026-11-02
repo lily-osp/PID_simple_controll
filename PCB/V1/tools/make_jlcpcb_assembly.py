@@ -19,12 +19,27 @@ BOARD = sys.argv[2] if len(sys.argv) > 2 else "bldc_esp32_driver.kicad_pcb"
 bb = pcbnew.LoadBoard(BOARD).GetBoardEdgesBoundingBox()
 X0, Y1 = bb.GetX() / 1e6, bb.GetBottom() / 1e6
 
+# LCSC numbers verified against lcsc.com, keyed by (Value, Footprint)
+lcsc = {}
+try:
+    for row in csv.DictReader(open("tools/lcsc_map.csv")):
+        lcsc[(row["Value"], row["Footprint"])] = row["LCSC"]
+except FileNotFoundError:
+    pass
+
 bom = list(csv.DictReader(open(f"{FAB}/bom_raw.csv")))
+missing = []
 with open(f"{FAB}/bom_jlcpcb.csv", "w", newline="") as f:
     w = csv.writer(f)
     w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #"])
     for r in bom:
-        w.writerow([r["Value"], r["Refs"], r["Footprint"], r["LCSC"]])
+        part = r["LCSC"] or lcsc.get((r["Value"], r["Footprint"]), "")
+        if not part:
+            missing.append(r["Value"])
+        w.writerow([r["Value"], r["Refs"], r["Footprint"], part])
+print(f"  LCSC numbers filled : {len(bom) - len(missing)} of {len(bom)}")
+if missing:
+    print(f"  still to assign     : {', '.join(missing)}")
 
 cpl = list(csv.DictReader(open(f"{FAB}/cpl_raw.csv")))
 with open(f"{FAB}/cpl_jlcpcb.csv", "w", newline="") as f:
