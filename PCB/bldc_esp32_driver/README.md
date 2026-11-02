@@ -48,6 +48,49 @@ internally to the JY01). No control port, no GPIO breakouts.
   GPIO4=EL (open-drain), GPIO5=ERR LED. GPIO6–10/20/21 are spare/unconnected.
 - **ERR LED** driven from GPIO5 via R32 (560 Ω); **PWR LED** from +5V via R20 (560 Ω).
 
+## Pre-order audit
+
+Checks performed on the exact fabrication data (`fab/`), all passing:
+
+| Check | Result |
+|---|---|
+| DRC (`--severity-all`) | 0 violations, 0 unconnected items |
+| Schematic parity | 0 genuine (268 cosmetic: root-sheet `/` prefix, footprint lib prefix) |
+| Outline closure | 8 Edge.Cuts segments, 0 open endpoints, 70.0 × 120.0 mm |
+| Pads outside outline | 0 |
+| Orphan nets (1 pad) | none |
+| Fab files | 9 gerbers + 1 drill (Excellon, metric, decimal) + job file |
+
+### Electrical fixes applied at audit
+
+- **Bootstrap caps C13–C15 were 10 µF/25 V.** The `VB_x` rail floats on the phase and
+  peaks at `V_IN + (V_+12V − V_f)` ≈ **V_IN + 11.3 V**. At the intended 12 V input that
+  is 23.3 V (93 % of the rating); at 24 V input it is 35.3 V and the part fails short,
+  taking the JY213L with it. Changed to **1 µF/50 V**, which is also the correct
+  bootstrap value for this gate charge (droop ≈ Q_g/C ≈ 50 mV/cycle). Footprint
+  unchanged (0805).
+- **Unrated 0805 caps on rails** were given explicit ratings: `C12 → 10 µF/25 V` (it sits
+  on +12 V), `C11/C19/C20 → 100 nF/50 V`.
+
+### Open issues (decide before ordering)
+
+1. **Trim pot sits on a strapping pin.** `RV1` wiper → `GPIO2`, which is one of the
+   three ESP32-C3 strapping pins (GPIO2/8/9) and must be high or floating at boot. The
+   pot pulls it to 0 V at the low end of travel, so a power cycle with the pot turned
+   down can enter joint-download boot instead of running firmware. `GPIO3` is the only
+   free ADC pin (`ADC1_CH3`), is not a strapping pin, and its pad (U6 pin 12) is 2.54 mm
+   from the current `GPIO2` pad (pin 11) — a two-segment reroute.
+2. **Firmware/board pin mismatch.** Firmware defines `POT_ENABLE_PIN 3`, but the board
+   leaves `GPIO3` unconnected, so with `INPUT_PULLUP` the trim is permanently disabled
+   and `RV1` does nothing. Fixing issue 1 makes `GPIO3` the ADC input, so the enable
+   gate should be dropped in firmware (trim always active, pot midpoint = 1.0×).
+3. **No mounting holes.** Four M3 holes at the corner centres (±35, ±60 mm from centre,
+   i.e. 5 mm from each edge) have ≥3.6 mm clearance to the nearest copper on all four
+   corners, so they can be added without disturbing the routing.
+4. **`EL` (GPIO4) and the ERR LED (GPIO5) are wired but unused by firmware.** `EL` is
+   pulled to +5 V through R33, so the JY01 enable state at power-up depends on the EL
+   polarity of the JY01 itself — confirm before relying on the motor being disabled.
+
 ## Status
 
 - **Schematic**: complete & verified — netlist matches the design table **223/234 pins**
