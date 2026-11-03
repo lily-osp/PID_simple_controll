@@ -493,3 +493,11 @@ memory.db-*
 hela-runs.db
 hela-runs.db-journal
 hela-runs.db-*
+
+# KiCad "checking_3D_models" plugin reports
+*_missing3Dmodels.txt
+*_log_missing3Dmodels.txt
+
+# PCBA deliverables (the rest of *.csv stays ignored)
+!PCB/V1/fab/bom_jlcpcb.csv
+!PCB/V1/fab/cpl_jlcpcb.csv
