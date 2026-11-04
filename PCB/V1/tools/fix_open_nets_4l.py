@@ -38,6 +38,15 @@ for t in dead:
 b.Save(BOARD)
 print(f"ripped {len(dead)} items on {', '.join(sorted(rip))}")
 
+# zones export as full-board Specctra planes; the router then sees an occupied
+# board and the resulting session cannot be imported. Drop them here --
+# import_4l.py rebuilds and refills them afterwards.
+zones = list(b.Zones())
+for z in zones:
+    b.Delete(z)
+if zones:
+    print(f"removed {len(zones)} pours for routing")
+
 assert pcbnew.ExportSpecctraDSN(b, DSN), "DSN export failed"
 src = open(DSN).read()
 

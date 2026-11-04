@@ -6,9 +6,10 @@ slightly wrong, not as a dead board.
 
 ## Test points
 
-Nine probe pads are on the board, 1.5 mm bare copper on the top side, unlabelled
-on the silkscreen (positions below). `VR` and `EL` have no pad — probe them at
-**R7 pin 2** and **R33 pin 1** respectively; they are 0805 pads and easy to touch.
+Fourteen probe pads are on the board, 1.5 mm bare copper on the top side,
+unlabelled on the silkscreen (positions below). `EL` and `HALL_OUT_A` have no pad
+— the area around them is fully occupied, so probe them at **R33 pin 1** and
+**U5 pin 2** respectively; both are easy to touch (0805 / 1.27 mm pitch).
 
 | TP | Net | Position (mm) | Expected |
 |---|---|---|---|
@@ -21,9 +22,14 @@ on the silkscreen (positions below). `VR` and `EL` have no pad — probe them at
 | TP8 | RPM_IN | 123.39, 111.75 | 0–3.3 V pulses when the motor turns |
 | TP9 | ISENSE_F | 154.88, 104.34 | mV-range, rises with load |
 | TP10 | GND | 158.60, 117.24 | 0 V reference |
+| TP11 | VR | 149.35, 119.26 | 0–3.3 V, follows PWM duty 1:1 |
+| TP12 | ZF | 149.97, 109.86 | static, ≈5 V forward / 0 V reverse |
+| TP13 | GPIO5 | 103.11, 119.92 | 3.3 V idle, ≈0 V when the ERR LED is on |
+| TP14 | HALL_OUT_B | 113.02, 93.87 | 0–5 V square wave, shaft turning |
+| TP15 | HALL_OUT_C | 116.32, 94.36 | 0–5 V square wave, shaft turning |
 
-There is no TP6 — the VR probe pad was dropped because the area around R7 is too
-dense to route it cleanly. Probe `R7 pin 2` instead.
+There is no TP6 — it was dropped in an earlier revision and the numbers were not
+reused, so the references stay stable across fabrication runs.
 
 ## Stage 0 — unpowered
 
@@ -66,9 +72,10 @@ driver's 5 V rail while also on USB without checking, see the main README).
 1. **Boot**: serial console at 115200 shows the banner and the pin report.
 2. **PWM**: with the motor disconnected, set a non-zero target. TP7 should show
    a PWM waveform 0–3.3 V. Confirm the duty changes with the command.
-3. **VR tracking**: probe **R7 pin 2**. VR should move *with* the duty — 0 % duty
+3. **VR tracking**: probe **TP11**. VR should move *with* the duty — 0 % duty
    ≈ 0 V, 100 % duty ≈ 3.3 V. It is a direct connection through R7, so there is no
    inversion. If VR does not move, R7 or the GPIO1 trace is the suspect.
+   (The pad sits on a short stub off the VR node, so it reads the same as R7 pin 2.)
 4. **EL**: probe R33 pin 1. Pulled to +5 V through R33, so the driver is in its
    default enable state. Confirm what the JY01 does with that — the polarity of
    EL on this chip family is still unverified.
@@ -80,6 +87,8 @@ Connect the motor's Hall connector to J3. Rotate the shaft **by hand**.
 | Check | Pass |
 |---|---|
 | TP8 `RPM_IN` | square pulses, 0–3.3 V, one per FG edge |
+| TP14 / TP15 `HALL_OUT_B` / `_C` | 0–5 V square waves, 120° apart, 50 % duty |
+| TP14/TP15 vs U5 pin 2 (`HALL_OUT_A`) | three evenly spaced phases |
 | Pulse rate | consistent with `PULSES_PER_REV` in the firmware |
 | U4/U5 outputs | clean logic levels, no chatter at rest |
 

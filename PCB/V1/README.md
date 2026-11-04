@@ -122,14 +122,14 @@ in `PCB/V2/` alongside it, so both stay buildable and comparable.
 | Layers | 2 | **4** (In1 = solid GND plane) |
 | Signal layers | 2 | 3 (F.Cu, In2.Cu, B.Cu) |
 | Phase copper (avg) | 0.33–0.39 mm | **0.67–0.74 mm** |
-| Traces / vias | 1277 / 142 | 904 / 113 |
+| Traces / vias | 1277 / 142 | 849 / 121 |
 | DRC | 0 / 0 | 0 / 0 |
 
 - **Schematic**: complete & verified — netlist matches the design table **223/234 pins**
   (floating pins are the 3 unused 74HC14 gate outputs + 8 spare ESP32 GPIOs).
 - **Board**: **fully routed, DRC-clean, fab package generated** — 64.1 mm × 98.1 mm
-  (5 mm rounded corners), 80 footprints (67 components + 4 M3 holes + 9 test points).
-  - 904 traces, 113 vias, 4 zones (solid GND plane on In1 + GND pours on
+  (5 mm rounded corners), 85 footprints (67 components + 4 M3 holes + 14 test points).
+  - 849 traces, 121 vias, 4 zones (solid GND plane on In1 + GND pours on
     F.Cu / B.Cu / In2.Cu)
   - **DRC: 0 violations, 0 unconnected items** (`kicad-cli pcb drc --severity-all`)
   - **Schematic parity: 0 genuine mismatches** — the 266 reported items are cosmetic only
@@ -265,11 +265,13 @@ from that catalogue can fit them: **U1 (JY01)**, **U3 (JY213L)** and
 **Q2–Q4 (JY2605M)**. They are only sold through Alibaba/AliExpress/specialist
 vendors. Either hand-solder them or supply them as consigned parts.
 
-**Test points.** Nine 1.5 mm probe pads are on the top side for bring-up
-(`V_IN`, `PNEG`, `+12V`, `+5V`, `+3.3V`, `PWM_OUT`, `RPM_IN`, `ISENSE_F`,
-`GND`). `VR` and `EL` have no pad — probe them on R7 pin 2 and R33 pin 1. They are board-only and excluded from the BOM/CPL, so they cost nothing.
-Positions, expected voltages and a staged bring-up procedure are in
-[`TESTPLAN.md`](TESTPLAN.md).
+**Test points.** Fourteen 1.5 mm probe pads are on the top side for bring-up
+(`V_IN`, `PNEG`, `+12V`, `+5V`, `+3.3V`, `VR`, `ZF`, `PWM_OUT`, `RPM_IN`,
+`ISENSE_F`, `GPIO5`, `HALL_OUT_B`, `HALL_OUT_C`, `GND`). `EL` and `HALL_OUT_A`
+have no pad — the area around them is fully occupied, so probe them on R33 pin 1
+and U5 pin 2 (both 0805 / 1.27 mm pitch, easy to touch). The pads are board-only
+and excluded from the BOM/CPL, so they cost nothing. Positions, expected voltages
+and a staged bring-up procedure are in [`TESTPLAN.md`](TESTPLAN.md).
 
 The through-hole parts (C1–C5, U7, U8, RV1) are in the CPL, but JLCPCB's
 economical PCBA is SMD-only — use their through-hole option or solder those by

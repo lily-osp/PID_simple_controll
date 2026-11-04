@@ -76,4 +76,4 @@ surface, never in control behaviour.
 |---|---|---|
 | `esp32-c3/control` | Bench / bring-up | Full serial console, manual/auto/stop modes, 0–50 Hz telemetry |
 | `esp32-c3/embedded` | Production | Silent by default, soft-start, stall re-arm, task watchdog |
-| `PCB/V1` | Hardware | 64 × 98 mm 4-layer, JY01 + JY213L + JY2605M, Hall amp, 10 test points |
+| `PCB/V1` | Hardware | 64 × 98 mm 4-layer, JY01 + JY213L + JY2605M, Hall amp, 14 test points |
