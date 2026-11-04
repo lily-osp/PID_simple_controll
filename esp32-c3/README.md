@@ -204,7 +204,7 @@ sees (a floating ADC input is clamped to the same range).
 ⚠️ GPIO 3 is `ADC1_CH3` and is **not** a strapping pin. Do not move the
 wiper to GPIO 2: that is a boot strapping pin and the pot pulls it to
 0 V at the low end of travel, which can stop the board from booting.
-The PCB (`PCB/bldc_esp32_driver`) is wired for GPIO 3.
+The PCB (`PCB/V1`) is wired for GPIO 3.
 
 ### Power-up sequence
 

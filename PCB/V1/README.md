@@ -1,6 +1,6 @@
 # BLDC Motor Driver — JYQD-V7.3E3 Architecture + ESP32-C3 Super Mini + Hall Amp
 
-Custom 70 × 120 mm PCB (full-integration) based on the **JYQD-V7.3E3** brushless driver
+Custom **64 × 98 mm, 4-layer** PCB (full-integration) based on the **JYQD-V7.3E3** brushless driver
 architecture, with an **ESP32-C3 Super Mini** controller and a Hall sensor signal
 conditioner (RC filter → LM324 gain ×11 → 74HC14 Schmitt trigger).
 
@@ -108,23 +108,23 @@ Checks performed on the exact fabrication data (`fab/`), all passing:
 **Folder layout:** `PCB/V1/` is this board. When a smaller revision is attempted it goes
 in `PCB/V2/` alongside it, so both stay buildable and comparable.
 
-**Two board revisions exist.** The 70 × 120 mm 2-layer board is preserved at git tag `v1`
-(commit 837cf5a). This folder is the 64 × 98 mm 4-layer board.
+**The previous board is preserved at git tag `v1`** (commit 837cf5a): 70 × 120 mm,
+2 layers. This folder is the current 64 × 98 mm 4-layer board.
 
-| | v1 (tag `v1`) | v2 (this branch) |
+| | old (tag `v1`) | this board |
 |---|---|---|
 | Size | 70 × 120 mm (8400 mm²) | **64 × 98 mm (6272 mm², −25 %)** |
 | Layers | 2 | **4** (In1 = solid GND plane) |
 | Signal layers | 2 | 3 (F.Cu, In2.Cu, B.Cu) |
-| Phase copper (avg) | 0.33–0.39 mm | **0.74–0.77 mm** |
-| Traces / vias | 1277 / 142 | 817 / 125 |
+| Phase copper (avg) | 0.33–0.39 mm | **0.67–0.74 mm** |
+| Traces / vias | 1277 / 142 | 916 / 113 |
 | DRC | 0 / 0 | 0 / 0 |
 
 - **Schematic**: complete & verified — netlist matches the design table **223/234 pins**
   (floating pins are the 3 unused 74HC14 gate outputs + 8 spare ESP32 GPIOs).
-- **Board (v2)**: **fully routed, DRC-clean, fab package generated** — 64.1 mm × 98.1 mm
-  (5 mm rounded corners), 73 footprints (69 components + 4 M3 mounting holes).
-  - 817 traces (3023 mm), 125 vias, 4 zones (solid GND plane on In1 + GND pours on
+- **Board**: **fully routed, DRC-clean, fab package generated** — 64.1 mm × 98.1 mm
+  (5 mm rounded corners), 83 footprints (69 components + 4 M3 holes + 10 test points).
+  - 916 traces (3058 mm), 113 vias, 4 zones (solid GND plane on In1 + GND pours on
     F.Cu / B.Cu / In2.Cu)
   - **DRC: 0 violations, 0 unconnected items** (`kicad-cli pcb drc --severity-all`)
   - **Schematic parity: 0 genuine mismatches** — the 268 reported items are cosmetic only
@@ -141,10 +141,10 @@ in `PCB/V2/` alongside it, so both stay buildable and comparable.
 
 ### Copper sizing (measured, not assumed)
 
-v2 gives the phases a dedicated corridor, so they are no longer starved by the 2-layer
+The 4-layer stack gives the phases a dedicated corridor, so they are no longer starved by the 2-layer
 clearance wall. Length-weighted averages:
 
-| Net | v1 avg | **v2 avg** | v2 min | v2 max |
+| Net | 2-layer avg | **this board avg** | min | max |
 |---|---|---|---|---|
 | PH_A | 0.33 mm | **0.75 mm** | 0.25 mm | 0.80 mm |
 | PH_B | 0.35 mm | **0.74 mm** | 0.25 mm | 0.80 mm |
@@ -155,11 +155,11 @@ clearance wall. Length-weighted averages:
 
 > **Current capability.** The phases now run at 0.75 mm average with only short
 > (sub-millimetre) necks at the driver's 0.65 mm-pitch pads. On **2 oz outer copper** that
-> is roughly **4 A per phase**, up from ~2.6 A on v1. The `+12V`/`+5V` rails are thinner
+> is roughly **4 A per phase**, up from ~2.6 A on the 2-layer board. The `+12V`/`+5V` rails are thinner
 > than v1 (0.40 mm) because they are logic/gate-drive supplies: 0.40 mm on 2 oz carries
 > ~1.5 A, and the actual load is a few hundred mA.
 
-## Component placement (v2, 64 × 98 mm)
+## Component placement (64 × 98 mm)
 
 | Zone | Components |
 |---|---|
@@ -174,10 +174,10 @@ clearance wall. Length-weighted averages:
 `U3` sits clear of the FET row on purpose: its 0.65 mm-pitch phase-sense pins need a
 fanout corridor, and placing it in line with the FETs makes them unreachable.
 
-## Routing pipeline (reproducible, v2)
+## Routing pipeline (reproducible)
 
 1. `gen_sch_full.py` — regenerate schematic (netlist-verified).
-2. `compact_4l.py` — the v2 placement + 64 × 98 mm rounded outline, with a courtyard
+2. `compact_4l.py` — the placement + 64 × 98 mm rounded outline, with a courtyard
    clash report (`--check` reports without saving).
 3. `route_prep_4l.py` — export the DSN and inject width classes. **In1.Cu is set to
    `power`**, so FreeRouting will not put signal traces on it and it stays a solid plane.
@@ -273,26 +273,23 @@ hand as well.
 `fab/bom_jlcpcb.csv` (27 lines) and `fab/cpl_jlcpcb.csv` (65 placements) are in
 JLCPCB's upload format.
 
-**LCSC part numbers: 20 of 27 lines are filled**, each verified against an actual
-LCSC product page (see `tools/lcsc_map.csv` for the mapping and manufacturer
-part). Still blank:
+**LCSC part numbers: 24 of 27 lines are filled**, each verified against live
+LCSC/JLCPCB stock (see `tools/lcsc_map.csv` for the mapping and manufacturer
+part). Only these remain blank, and only because LCSC does not carry them:
 
 | Line | Why |
 |---|---|
-| C1, C2 (480 µF/63 V) | value is unusual — 470 µF is the standard; lead pitch of the candidates could not be confirmed |
-| C3–C5 (220 µF/50 V) | ditto, pitch unconfirmed |
-| R1 (R005 2512) | no 5 mΩ 2512 shunt found in the catalogue |
-| U1, U3, Q2–Q4 | not in the LCSC catalogue at all (see above) |
-| U2 | see the footprint problem below |
+| U1 (JY01), U3 (JY213L), Q2–Q4 (JY2605M) | not in the LCSC catalogue at all |
 
-The 0805 passives, LEDs, 1N4148, LM324, 74HC14, 7805/7812 and the trim pot all
-have confirmed numbers.
+Values that changed so the parts are actually orderable:
 
-> **U2 footprint mismatch.** The schematic says `CSD13380F3`, which is a
-> TI FemtoFET measuring **0.73 × 0.64 mm** — but the footprint is **SOT-23-3**.
-> Those cannot be the same part. Either the value is a copy-paste from a
-> reference design and the real part is a SOT-23 N-MOSFET (2N7002, AO3400…),
-> or the footprint is wrong. Needs a decision before ordering.
+- `C1/C2` are **470 µF/63 V** — 480 µF is not a real capacitor value.
+- `C3–C5` are 220 µF/50 V, D10 × 12.5 mm, **5 mm pitch** (matches the D10/P5 land).
+- `R1` is a 5 mΩ ±1 % **3 W** 2512 shunt.
+- **U2 is a 2N7002**, not `CSD13380F3`. The original is a TI FemtoFET measuring
+  0.73 × 0.64 mm, which cannot sit on a SOT-23-3 land; 2N7002 is pin-compatible,
+  has the same function (open-drain pull-down of the JY01 VR node), and is a
+  JLCPCB basic part.
 
 > **ERC note**: the schematic reports 28 ERC items, all accounted for — 11 unconnected
 > pins are the intentionally-unused 74HC14 gates and spare ESP32 GPIOs; 3 are library
@@ -305,18 +302,20 @@ have confirmed numbers.
 ```
 bldc_esp32_driver/
 ├── bldc_esp32_driver.kicad_sch    # schematic
-├── bldc_esp32_driver.kicad_pcb    # board (v2: 64 x 98 mm, 4 layers, DRC-clean)
+├── bldc_esp32_driver.kicad_pcb    # board (64 x 98 mm, 4 layers, DRC-clean)
 ├── bldc_esp32_driver.kicad_pro
-├── README.md
+├── README.md                      # this file
+├── TESTPLAN.md                    # staged bring-up procedure
 ├── footprints/ESP32-C3-SuperMini.kicad_mod
 ├── footprints/JY2605M_DFN8_5x6.kicad_mod   # DFN-8 5x6 half-bridge (no exact lib match)
-├── render/routed_{top,bottom}.png
-├── fab/                                    # gerbers, drill, positions, ORDER.md
+├── render/routed_{top,bottom,top_zoom}.png # refreshed by fab_package.sh
+├── fab/                           # gerbers, drill, ORDER.md, BOM + CPL (JLCPCB)
 ├── tools/gen_sch_full.py, gen_pcb.py, verify_net.py
 ├── tools/compact_4l.py, route_prep_4l.py, import_4l.py, fix_open_nets_4l.py
+├── tools/add_testpoints.py, make_jlcpcb_assembly.py, lcsc_map.csv
 ├── tools/silk_4l.py, set_values.py, fix_pot_pin_and_holes.py
 ├── tools/final_{incremental,import_ses,widen,settle,minwidth,silk_cleanup}.py
-├── tools/fab_package.sh
+├── tools/fab_package.sh           # gerbers + BOM/CPL + renders in one shot
 ├── fp-lib-table
 └── fp-info-cache
 ```

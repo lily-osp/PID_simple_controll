@@ -18,4 +18,4 @@
 
 ## Registry
 
-- Entry in [Tracks Registry](../tracks.md)
+- Entry in [Tracks Registry](../../tracks.md)

@@ -4,8 +4,7 @@ Fixed-target PID controller for BLDC motors on the ESP32-C3, run bare-metal
 for compute (no WiFi, no BLE). Holds 1440 RPM via a 200Hz FreeRTOS loop.
 
 > History: this project previously shipped Arduino Uno and ATtiny85 variants.
-> They were removed on 2026-10-31 and are preserved on the
-> `archive/all-variants` branch.
+> They were removed on 2026-10-31 (commit `396ade7`) and remain in git history.
 
 ## Overview
 
@@ -86,9 +85,9 @@ Which build to flash: see [BUILDS.md](../esp32-c3/BUILDS.md).
 
 Full architecture: [ESP32-C3 README](../esp32-c3/README.md).
 
-### Custom Driver PCB (`PCB/bldc_esp32_driver/`)
+### Custom Driver PCB (`PCB/V1/`)
 
-Full-integration 70 × 120 mm board combining the firmware above with its own
+Full-integration **64 × 98 mm, 4-layer** board combining the firmware above with its own
 driver hardware — no external ESC needed:
 
 - **JYQD-V7.3E3 architecture**: JY01 controller + JY213L gate driver + JY2605M
@@ -97,7 +96,7 @@ driver hardware — no external ESC needed:
 - **Hall signal conditioner**: RC filter → LM324 (×11) → 74HC14 Schmitt trigger
 - **Power tree**: V_IN → 7812 → +12V → 7805 → +5V
 
-Design files, port pinouts, and build scripts: [PCB README](../PCB/bldc_esp32_driver/README.md).
+Design files, port pinouts, and build scripts: [PCB README](../PCB/V1/README.md).
 
 ## Documentation
 
@@ -108,7 +107,8 @@ Design files, port pinouts, and build scripts: [PCB README](../PCB/bldc_esp32_dr
 - **[ESP32-C3 README](../esp32-c3/README.md)**: Architecture, firmware, and hardware setup
 - **[Builds](../esp32-c3/BUILDS.md)**: Production vs bench firmware, and how they share code
 - **[Diagnostics Guide](../esp32-c3/DIAGNOSTICS.md)**: Serial console commands and fault isolation
-- **[Driver PCB](../PCB/bldc_esp32_driver/README.md)**: Custom ESP32-C3 + JYQD-architecture driver board
+- **[Driver PCB](../PCB/V1/README.md)**: 64 × 98 mm 4-layer ESP32-C3 + JYQD-architecture driver board
+- **[PCB Test Plan](../PCB/V1/TESTPLAN.md)**: Staged bring-up procedure and failure diagnosis
 
 ## Configuration
 

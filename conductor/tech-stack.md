@@ -2,7 +2,7 @@
 
 ## Overview
 
-Brownfield embedded product. **Single target: ESP32-C3** (small form factor + maximum stability), deployed on the custom driver PCB. Former Arduino Uno / ATtiny85 variants were removed on 2026-10-31 and are preserved on the `archive/all-variants` branch.
+Brownfield embedded product. **Single target: ESP32-C3** (small form factor + maximum stability), deployed on the custom driver PCB. Former Arduino Uno / ATtiny85 variants were removed on 2026-10-31 (commit `396ade7`) and remain in git history.
 
 ## Languages
 
@@ -16,7 +16,7 @@ Brownfield embedded product. **Single target: ESP32-C3** (small form factor + ma
 | ESP32-C3 `embedded/` (production) | ESP32-C3 (RISC-V 32-bit, FPU) | 160 MHz | **Production — enclosure** (silent, autonomous, stall failsafe) | Module ~18×20 mm, ~60 mA |
 
 - **Motor HW:** 3-phase BLDC + single Hall sensor + driver (PWM in). Hall → GPIO ISR (ESP32-C3) via PCNT/interval measurement; PWM → LEDC 5 kHz. 5 V Hall requires 2.2 kΩ/3.3 kΩ divider for ESP32-C3 3.3 V inputs.
-- **Driver PCB:** `PCB/bldc_esp32_driver/` — full-integration 70 × 120 mm board (JYQD-V7.3E3 architecture: JY01 + JY213L + JY2605M, ESP32-C3 Super Mini onboard, Hall amp RC → LM324 ×11 → 74HC14).
+- **Driver PCB:** `PCB/V1/` — full-integration 64 × 98 mm 4-layer board (JYQD-V7.3E3 architecture: JY01 + JY213L + JY2605M, ESP32-C3 Super Mini onboard, Hall amp RC → LM324 ×11 → 74HC14). Previous 70 × 120 mm 2-layer revision kept at tag `v1`.
 
 ## Frameworks & Libraries
 
@@ -28,7 +28,7 @@ Brownfield embedded product. **Single target: ESP32-C3** (small form factor + ma
 
 - **Build:** `arduino-cli compile -b esp32:esp32:nologo_esp32c3_super_mini esp32-c3/control` (bench) / `esp32-c3/embedded` (production).
 - **Artifacts:** `compiled/` binaries + `DDMMYYYY_<repo>.zip` release.
-- **PCB:** KiCad (`PCB/bldc_esp32_driver/bldc_esp32_driver.kicad_*`, custom footprints, `tools/gen_sch_full.py` / `gen_pcb.py` / `verify_net.py`).
+- **PCB:** KiCad (`PCB/V1/bldc_esp32_driver.kicad_*`, custom footprints, `tools/gen_sch_full.py` / `gen_pcb.py` / `verify_net.py`, plus the 4-layer routing and test-point tooling).
 
 ## CI/CD
 

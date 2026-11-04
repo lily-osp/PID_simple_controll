@@ -1,55 +1,79 @@
 # BLDC Motor PID Controller — Product Definition
 
+> **History:** this project previously shipped Arduino Uno and ATtiny85 variants.
+> They were removed on 2026-10-31 (commit `396ade7`) and remain in git history.
+> The product is now **ESP32-C3 only**, with its own driver PCB.
+
 ## Summary
 
-High-performance PID control system for precise BLDC motor RPM regulation (default `DEFAULT_TARGET_RPM = 1440.0`) across three microcontroller families: **Arduino Uno** (development/tuning), **ATtiny85 v1/v2/v3** (cost-optimized production), and **ESP32-C3** (RTOS/BLE high-performance). Balances **cost & footprint** (ATtiny85 $1–2, 8-pin DIP, ~8–10 mA) with **precision at 1440 RPM** via anti-windup PID, derivative filtering, and platform-specific RPM filters (EMA / median+EMA / moving average / sliding window). Designed for makers & low-volume builders (1–10 units) using an Arduino-first `tune → ISP flash` workflow. No cloud platform — ESP32-C3 BLE provides local JSON status only.
+Closed-loop PID speed control for a 3-phase BLDC motor (default
+`DEFAULT_TARGET_RPM = 1440.0`), running on an **ESP32-C3 Super Mini** that sits on
+a **custom 64 × 98 mm 4-layer driver PCB**. The board carries the whole driver
+chain — JY01 controller, JY213L gate driver, JY2605M half-bridges, Hall signal
+conditioner and power tree — so no external ESC is needed.
+
+Precision comes from anti-windup PID, derivative filtering and a filtered RPM
+measurement over the ESP32's hardware PCNT counter. Telemetry is local only:
+USB serial, plus the driver's own FG/VR/EL interface.
 
 ## Vision
 
-Enable a maker to characterize a BLDC motor on Arduino Uno (Serial Monitor/Plotter + potentiometer live tuning, mode switching) and deploy the *identical* control logic to a minimal ATtiny85 or to a deterministic 200 Hz FreeRTOS ESP32-C3 without re-architecting. Shared modules (`pid_common.h`, `rpm_common.h`, `isr_common.h`, `config_common.h`) guarantee behavioral parity; platform-specific drivers exploit hardware (Timer1 capture, LEDC 5 kHz, PCNT, IRAM ISR) only where they improve stability.
+One board, one firmware family: characterise the motor on the bench, then deploy
+the *same* control maths to production without re-architecting. The two firmware
+variants (`control/` and `embedded/`) share `pid_common.h`, `rpm_common.h`,
+`pcnt_driver.h` and `ledc_driver.h` — they differ only in telemetry and console
+surface, never in control behaviour.
 
 ## Target Users
 
-- **Primary:** Makers, educators, low-volume builders prototyping one-off or small-batch devices (1–10 units).
-- **Secondary:** Small-run product teams using the Cameflex KiCad PCB for fixed-ESC 3-phase BLDC with single-Hall sensing.
-- **Workflow:** `Develop on Uno → record Kp/Ki/Kd → flash ATtiny85 via Arduino-as-ISP (10 µF reset cap) or ESP32-C3 via USB`.
+- **Primary:** makers and low-volume builders (1–10 units) building a BLDC
+  spindle or pump drive with a single-Hall or FG-tacho motor.
+- **Secondary:** anyone replacing a JYQD-V7.3E3 driver board with an equivalent
+  that can be closed-loop controlled over USB serial.
+- **Workflow:** flash over USB → open the bench console → tune → bake the values
+  into `config_common.h` → flash the production build.
 
 ## Goals
 
-1. **RPM Stability at 1440 RPM:** ±1–2% steady-state error, fast settling, no sustained oscillation or overshoot; validated via soft-start ramp and filtered RPM (EMA/median/sliding-window).
-2. **Cost & Size Optimized:** ATtiny85 variants fit 8 KB flash / 512 B RAM; PCB-integratable 8-pin DIP; BOM $1–2 for production.
-3. **Tunability:** Potentiometer live-tune on Uno without recompilation; fixed-compile constants on ATtiny/ESP32-C3 derived from same tuning session.
-4. **Safety & Robustness:** Soft-start protection, emergency stop, watchdog (ATtiny) / task watchdog (ESP32-C3), stall/aliasing failsafe, 5 V→3.3 V divider guidance for ESP32-C3.
-5. **Reproducibility:** All six firmware variants (Uno, ATtiny v1/v2/v3, ESP32 control & control_ble) compile in CI (`compile.yml`) with consistent `config.h` interface (`PULSES_PER_REV = N_poles/2`).
+1. **RPM stability at 1440 RPM:** ±1–2 % steady-state error, fast settling, no
+   sustained oscillation; validated through the soft-start ramp and filtered RPM.
+2. **Self-contained hardware:** mains-to-motor on one board — power input, bulk
+   capacitance, gate drive, half-bridges, Hall conditioning, 12 V/5 V/3.3 V rails.
+3. **Tunability:** live gain trim from the on-board potentiometer (0.75×–1.25×,
+   applied to all three gains) without recompiling.
+4. **Safety and robustness:** soft-start, stall detection with automatic
+   re-arm, task watchdog, and a boot-safe pin map (no strapping-pin conflicts).
+5. **Reproducibility:** both firmware variants compile in CI on every push, and
+   the PCB produces a verified fabrication package from one script.
 
 ## Non-Goals
 
-- **Cloud/App Platform:** No hosted dashboard or Wi-Fi fleet management. BLE JSON notifications (500 ms) and Serial are the only telemetry surfaces.
-- **FOC / Sinusoidal Control:** Trapezoidal ESC PWM only; no field-oriented or sensorless vector control this cycle.
-- **New MCU Ports:** Freeze at ATmega328P / ATtiny85 / ESP32-C3; no STM32/RP2040/ESP32-S3.
+- **Cloud / fleet platform:** no hosted dashboard or Wi-Fi management. USB serial
+  is the only telemetry surface.
+- **FOC / sensorless vector control:** trapezoidal commutation only this cycle.
+- **New MCU ports:** freeze at ESP32-C3. No STM32, RP2040 or ESP32-S3.
 
 ## Constraints
 
-- Motor: 3-phase BLDC with single Hall sensor; Hall → PB3 (ATtiny85) / GPIO ISR (ESP32-C3); PWM → PB0 / LEDC.
-- `PULSES_PER_REV = N_poles / 2` (e.g., 8-pole = 4).
-- Voltage levels: 5 V logic (Uno/ATtiny) vs 3.3 V (ESP32-C3) requires 2.2 kΩ/3.3 kΩ divider for 5 V Hall.
-- Shared codebase must remain Arduino IDE + PlatformIO compatible (`.ino` + `.h`).
+- Motor: 3-phase BLDC with Hall sensors and an FG tacho output.
+- `PULSES_PER_REV = N_poles / 2` (8-pole → 4).
+- Logic is 3.3 V (ESP32-C3); the driver interface is 5 V, so the FG line is
+  divided 2.2 kΩ / 3.3 kΩ and the VR node is driven open-drain.
+- Firmware must stay Arduino IDE and PlatformIO compatible (`.ino` + `.h`).
+- Board: 64 × 98 mm, 4 layers, 2 oz outer copper, DRC-clean at 0.2 mm
+  clearance; see `PCB/V1/README.md`.
 
 ## Success Metrics
 
-- RPM stays within ±20 RPM of 1440 RPM under load step.
-- PID constants transfer Uno → ATtiny v1 with no re-tune; v2/ESP32 re-tune bounded to <30 min.
-- CI: `arduino-cli compile` passes for Uno, ATtiny v1/v2/v3, ESP32-C3 control/control_ble on every push.
-- Flash time <2 min/unit via ISP or USB.
+- RPM stays within ±20 RPM of target under a load step.
+- Bench-to-production transfer needs no re-tune.
+- CI: `arduino-cli compile` passes for both variants on every push.
+- PCB: 0 DRC violations, 0 unconnected items, fab package verified before order.
 
 ## Platforms (in-scope)
 
 | Variant | Role | Notable |
-|---------|------|---------|
-| Arduino Uno | Dev/Tuning | Serial Plotter, potentiometer live Kp/Ki/Kd, emergency stop |
-| ATtiny85 v1 | Production (recommended) | Float PID, direct Uno port, watchdog |
-| ATtiny85 v2 | Production (optimized) | Timer1 capture, integer math |
-| ATtiny85 v3 | Production (failsafe) | Alias/stall mitigation |
-| ESP32-C3 control | High-perf | FreeRTOS 200 Hz, LEDC 5 kHz, sliding window, 160 MHz FPU |
-| ESP32-C3 control_ble | IoT | + BLE start/stop, spinlock state, JSON status |
-| ESP32-C3 simulator | Tool | Virtual motor physics for offline filter/PID test |
+|---|---|---|
+| `esp32-c3/control` | Bench / bring-up | Full serial console, manual/auto/stop modes, 0–50 Hz telemetry |
+| `esp32-c3/embedded` | Production | Silent by default, soft-start, stall re-arm, task watchdog |
+| `PCB/V1` | Hardware | 64 × 98 mm 4-layer, JY01 + JY213L + JY2605M, Hall amp, 10 test points |
