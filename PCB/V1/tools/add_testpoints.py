@@ -21,18 +21,26 @@ import sys
 sys.path.insert(0, "/usr/lib/python3/dist-packages")
 import pcbnew
 
-BOARD = "bldc_esp32_driver.kicad_pcb"
+BOARD = sys.argv[1] if len(sys.argv) > 1 else "bldc_esp32_driver.kicad_pcb"
+
+# reference to reuse when a pad is being re-placed after a layout change, so the
+# numbers already printed in TESTPLAN.md stay valid
+PREFER = {"+3.3V": "TP5", "RPM_IN": "TP8", "GPIO5": "TP13"}
 MM = 1_000_000
 PAD_D = 1.5
 PAD_CLEARANCE = 0.30   # pad edge to any other net
 EDGE_MARGIN = 1.2      # pad centre to board edge
 TRACK_W = 0.25
-TRACK_CLEARANCE = 0.20
+TRACK_CLEARANCE = 0.28
 
 # nets worth probing during bring-up
 TARGETS = ["V_IN", "PNEG", "+12V", "+5V", "+3.3V", "VR", "EL", "ZF",
            "PWM_OUT", "RPM_IN", "ISENSE_F", "GPIO5",
-           "HALL_OUT_A", "HALL_OUT_B", "HALL_OUT_C", "GND"]
+           "HALL_OUT_A", "HALL_OUT_B", "HALL_OUT_C", "GND",
+           # second pass: enable chain, analogue front end, power stage
+           "GPIO4", "POT_ADC",
+           "VB_A", "VB_B", "VB_C",
+           "GQ_GH1", "GQ_GH2", "GQ_GH3", "GQ_GL1", "GQ_GL2", "GQ_GL3"]
 
 b = pcbnew.LoadBoard(BOARD)
 b.BuildConnectivity()
@@ -115,8 +123,8 @@ def spot_ok(x, y, net):
 def stub_ok(x1, y1, x2, y2, net):
     need = TRACK_W / 2 + TRACK_CLEARANCE
     for ox1, oy1, ox2, oy2, r, onet in obstacles:
-        if onet == net:
-            continue
+        if onet == net or onet == "__silk__":
+            continue   # same net, or silkscreen: a covered track may pass under silk
         # sample the stub densely enough that a crossing cannot slip through
         steps = max(1, int(math.hypot(x2 - x1, y2 - y1) / 0.2))
         for i in range(steps + 1):
@@ -132,8 +140,13 @@ def edge_dist(p):
 
 
 def fcu_samples(net):
-    """Points on the net's F.Cu copper: track endpoints first, then interiors."""
+    """Points on the net's F.Cu copper: pads, track endpoints, then interiors."""
     ends, mids = [], []
+    for fp in b.GetFootprints():
+        for p in fp.Pads():
+            if p.GetNetname() == net and p.IsOnLayer(pcbnew.F_Cu):
+                q = p.GetPosition()
+                ends.append((q.x / MM, q.y / MM))
     for t in b.GetTracks():
         if t.GetNetname() != net or t.GetLayer() != pcbnew.F_Cu:
             continue
@@ -150,13 +163,14 @@ def fcu_samples(net):
     return ends + mids
 
 
-def add_pad(net, x, y):
+def add_pad(net, x, y, ref=None):
     global next_ref
     n = next(v for v in b.GetNetsByName().values() if v.GetNetname() == net)
     fp = pcbnew.FOOTPRINT(b)
     fp.SetPosition(pcbnew.VECTOR2I(int(round(x * MM)), int(round(y * MM))))
-    fp.SetReference(f"TP{next_ref}")
-    next_ref += 1
+    fp.SetReference(ref or f"TP{next_ref}")
+    if ref is None:
+        next_ref += 1
     fp.Reference().SetVisible(False)
     pad = pcbnew.PAD(fp)
     pad.SetShape(pcbnew.PAD_SHAPE_CIRCLE)
@@ -188,7 +202,7 @@ for net in TARGETS:
     spot = next((c for c in sorted(fcu_samples(net), key=edge_dist)
                  if spot_ok(c[0], c[1], net)), None)
     if spot:
-        placed.append((add_pad(net, spot[0], spot[1]), net, spot, None))
+        placed.append((add_pad(net, spot[0], spot[1], PREFER.get(net)), net, spot, None))
         continue
 
     # 2. otherwise a short stub to the nearest clear spot
@@ -236,7 +250,7 @@ for net in TARGETS:
         continue
 
     radius, anchor, spot, corner = best
-    ref = add_pad(net, spot[0], spot[1])
+    ref = add_pad(net, spot[0], spot[1], PREFER.get(net))
     n = next(v for v in b.GetNetsByName().values() if v.GetNetname() == net)
     pts = [anchor] if corner is None else [anchor, corner]
     pts.append(spot)

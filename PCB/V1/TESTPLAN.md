@@ -6,10 +6,21 @@ slightly wrong, not as a dead board.
 
 ## Test points
 
-Fourteen probe pads are on the board, 1.5 mm bare copper on the top side,
-unlabelled on the silkscreen (positions below). `EL` and `HALL_OUT_A` have no pad
-— the area around them is fully occupied, so probe them at **R33 pin 1** and
-**U5 pin 2** respectively; both are easy to touch (0805 / 1.27 mm pitch).
+Twenty-one probe pads are on the board, 1.5 mm bare copper on the top side, each
+with its **number printed on the silkscreen** beside it (the "TP" prefix is
+dropped — pad `16` is `TP16`). There is no TP6 and no TP13: both were dropped
+when the area around them turned out to be occupied, and the numbers were not
+reused so the references stay stable.
+
+Five nets have no pad and are probed on a component pad instead:
+
+| Net | Probe at | Why no pad |
+|---|---|---|
+| `EL` | R33 pin 1 | boxed in by +5V / FG |
+| `HALL_OUT_A` | U5 pin 2 | blocked by the hall filter tracks |
+| `VB_B`, `VB_C` | C14 / C15 pin 1 | no free spot near the power stage |
+| `GQ_GH3` | Q4 pin 1 | same |
+| `GPIO5` | R32 pin 1 | module, mounting hole and board edge leave no room |
 
 | TP | Net | Position (mm) | Expected |
 |---|---|---|---|
@@ -17,19 +28,23 @@ unlabelled on the silkscreen (positions below). `EL` and `HALL_OUT_A` have no pa
 | TP2 | PNEG | 161.21, 61.98 | ≈0 V (shunt return) |
 | TP3 | +12V | 109.05, 92.79 | 11.3 V at 12 V in, 12.0 V at ≥15 V in |
 | TP4 | +5V | 102.12, 109.56 | 5.0 V ±0.25 |
-| TP5 | +3.3V | 108.19, 122.78 | 3.3 V ±0.15 |
+| TP5 | +3.3V | 138.68, 131.00 | 3.3 V ±0.15 (module LDO, feeds the trim pot) |
 | TP7 | PWM_OUT | 133.50, 110.83 | 0–3.3 V PWM from the ESP32 |
-| TP8 | RPM_IN | 123.39, 111.75 | 0–3.3 V pulses when the motor turns |
+| TP8 | RPM_IN | 130.59, 124.20 | 0–3.3 V pulses when the motor turns |
 | TP9 | ISENSE_F | 154.88, 104.34 | mV-range, rises with load |
 | TP10 | GND | 158.60, 117.24 | 0 V reference |
 | TP11 | VR | 149.35, 119.26 | 0–3.3 V, follows PWM duty 1:1 |
 | TP12 | ZF | 149.97, 109.86 | static, ≈5 V forward / 0 V reverse |
-| TP13 | GPIO5 | 103.11, 119.92 | 3.3 V idle, ≈0 V when the ERR LED is on |
 | TP14 | HALL_OUT_B | 113.02, 93.87 | 0–5 V square wave, shaft turning |
 | TP15 | HALL_OUT_C | 116.32, 94.36 | 0–5 V square wave, shaft turning |
-
-There is no TP6 — it was dropped in an earlier revision and the numbers were not
-reused, so the references stay stable across fabrication runs.
+| TP16 | GPIO4 | 109.32, 109.60 | 3.3 V = enabled, 0 V = forbidden |
+| TP17 | POT_ADC | 112.40, 109.88 | 0–3.3 V, midpoint at pot centre |
+| TP18 | VB_A | 147.11, 65.03 | V_IN + ~11 V when the high side switches |
+| TP19 | GQ_GH1 | 102.26, 77.44 | 0–12 V gate drive, phase A high side |
+| TP20 | GQ_GH2 | 149.75, 81.51 | 0–12 V gate drive, phase B high side |
+| TP21 | GQ_GL1 | 102.01, 72.44 | 0–12 V gate drive, phase A low side |
+| TP22 | GQ_GL2 | 112.10, 71.07 | 0–12 V gate drive, phase B low side |
+| TP23 | GQ_GL3 | 155.19, 74.28 | 0–12 V gate drive, phase C low side |
 
 ## Stage 0 — unpowered
 
@@ -76,9 +91,12 @@ driver's 5 V rail while also on USB without checking, see the main README).
    ≈ 0 V, 100 % duty ≈ 3.3 V. It is a direct connection through R7, so there is no
    inversion. If VR does not move, R7 or the GPIO1 trace is the suspect.
    (The pad sits on a short stub off the VR node, so it reads the same as R7 pin 2.)
-4. **EL**: probe R33 pin 1. Pulled to +5 V through R33, so the driver is in its
-   default enable state. Confirm what the JY01 does with that — the polarity of
-   EL on this chip family is still unverified.
+4. **EL chain**: **TP16** `GPIO4` is the MCU side, **R33 pin 1** is the driver
+   side. GPIO4 high → EL ≈5 V → driver *allowed* to run; GPIO4 low → EL ≈0 V →
+   forbidden. Pulling GPIO4 high while the console reports "disabled" means the
+   firmware and the schematic disagree; check `EL_ACTIVE_LOW` in `config.h`.
+5. **Trim pot**: **TP17** `POT_ADC` should sit near 1.65 V at mid-travel and move
+   smoothly to both ends. A stuck value means the wiper (RV1 pin 2) is open.
 
 ## Stage 3 — Hall sensors, motor disconnected
 
@@ -104,8 +122,13 @@ Motor connected, shaft free, **current limit 500 mA**, target low.
 3. Check Q2–Q4 and U3 temperature after 30 s: warm is fine, hot is not.
 4. Sweep the target 500 → 1500 RPM. RPM should track without oscillation. If it
    hunts, turn the trim pot down (it scales all three gains).
-5. **Gate drive sanity** (scope, if available): look at a phase node — clean
-   square edges, no ringing above ~2× V_IN, no shoot-through.
+5. **Gate drive sanity** (scope, if available): probe **TP19/TP20/TP21/TP22/TP23**
+   (the FET gates) one at a time, then a phase node. Expect 0–12 V square edges,
+   no ringing above ~2× V_IN, and **never** high-side and low-side of the same
+   phase high together (shoot-through). Q4 pin 1 is the missing `GQ_GH3`.
+6. **Bootstrap**: **TP18** `VB_A` should sit at V_IN + ~11 V while phase A's high
+   side switches, and recharge every cycle. If it sags, C13 is open. `VB_B` and
+   `VB_C` have no pad — probe C14 / C15 pin 1.
 
 ## Stage 5 — load
 
