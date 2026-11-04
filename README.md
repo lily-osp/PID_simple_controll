@@ -104,6 +104,7 @@ Bring-up procedure: [PCB/V1/TESTPLAN.md](PCB/V1/TESTPLAN.md).
 ### Comprehensive Guides
 
 - **[Hardware Assembly Guide](docs/howto.md)**: Wiring guide, pin assignments, and connection diagrams
+- **[Bench Wiring — stock JYQD + ESP32](docs/bench_wiring.md)**: Run the firmware on a stock JYQD-V7.3E3 and a bare Super Mini, before the custom PCB
 - **[Troubleshooting Guide](docs/mitigation.md)**: Comprehensive diagnosis and solutions for common issues
 - **[ESP32-C3 README](esp32-c3/README.md)**: Architecture, firmware, and hardware setup
 - **[Builds](esp32-c3/BUILDS.md)**: Production vs bench firmware, and how they share code

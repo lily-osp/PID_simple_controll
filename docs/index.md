@@ -103,6 +103,7 @@ Design files, port pinouts, and build scripts: [PCB README](../PCB/V1/README.md)
 ### Guides
 
 - **[Hardware Assembly](howto.md)**: Wiring guide, pin assignments, and connection diagrams
+- **[Bench Wiring — stock JYQD + ESP32](bench_wiring.md)**: Run the firmware on a stock JYQD-V7.3E3 and a bare Super Mini, before the custom PCB
 - **[Troubleshooting](mitigation.md)**: Comprehensive diagnosis and solutions for common issues
 - **[ESP32-C3 README](../esp32-c3/README.md)**: Architecture, firmware, and hardware setup
 - **[Builds](../esp32-c3/BUILDS.md)**: Production vs bench firmware, and how they share code
