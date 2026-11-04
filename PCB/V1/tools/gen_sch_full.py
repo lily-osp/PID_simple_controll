@@ -5,7 +5,7 @@ Real netlist built from stub wires + net labels; verified by kicad-cli netlist e
 """
 import re, random, uuid as uuidlib
 
-SCH = "/home/azzar/project/microcontrollers/03_projects/pids/pid-simple-controll/PCB/bldc_esp32_driver/bldc_esp32_driver.kicad_sch"
+SCH = "/home/azzar/project/microcontrollers/03_projects/pids/pid-simple-controll/PCB/V1/bldc_esp32_driver.kicad_sch"
 KSYM = "/usr/share/kicad/symbols"
 
 def rand_uuid():
@@ -181,8 +181,8 @@ COMPS = [
     # --- power entry / bulk / regulators ---
     ("J5",  "Connector_Generic:Conn_01x02", 1, "P+,P-",  "TerminalBlock:TerminalBlock_MaiXu_MX126-5.0-02P_1x02_P5.00mm", 27.94, 60.96),
     ("J6",  "Connector_Generic:Conn_01x03", 1, "MA,MB,MC",  "TerminalBlock:TerminalBlock_MaiXu_MX126-5.0-03P_1x03_P5.00mm", 27.94, 76.2),
-    ("C1",  "Device:C_Polarized", 1, "480uF/63V",  "Capacitor_THT:CP_Radial_D13.0mm_P5.00mm", 43.18, 63.5),
-    ("C2",  "Device:C_Polarized", 1, "480uF/63V",  "Capacitor_THT:CP_Radial_D13.0mm_P5.00mm", 43.18, 78.74),
+    ("C1",  "Device:C_Polarized", 1, "470uF/63V",  "Capacitor_THT:CP_Radial_D13.0mm_P5.00mm", 43.18, 63.5),
+    ("C2",  "Device:C_Polarized", 1, "470uF/63V",  "Capacitor_THT:CP_Radial_D13.0mm_P5.00mm", 43.18, 78.74),
     ("C5",  "Device:C_Polarized", 1, "220uF/50V",  "Capacitor_THT:CP_Radial_D10.0mm_P5.00mm", 43.18, 93.98),
     ("U8",  "Regulator_Linear:L7812", 1, "7812", "Package_TO_SOT_THT:TO-220-3_Vertical", 60.96, 68.58),
     ("C3",  "Device:C_Polarized", 1, "220uF/50V",  "Capacitor_THT:CP_Radial_D10.0mm_P5.00mm", 76.2, 66.04),
@@ -200,17 +200,17 @@ COMPS = [
     ("R11", "Device:R_US", 1, "100R", "Resistor_SMD:R_0805_2012Metric", 146.05, 106.68),
     ("R12", "Device:R_US", 1, "100R", "Resistor_SMD:R_0805_2012Metric", 146.05, 121.92),
     ("R13", "Device:R_US", 1, "100R", "Resistor_SMD:R_0805_2012Metric", 146.05, 137.16),
-    ("C11", "Device:C", 1, "100nF", "Capacitor_SMD:C_0805_2012Metric", 149.86, 50.8),
-    ("C12", "Device:C", 1, "10uF", "Capacitor_SMD:C_0805_2012Metric", 158.75, 50.8),
+    ("C11", "Device:C", 1, "100nF/50V", "Capacitor_SMD:C_0805_2012Metric", 149.86, 50.8),
+    ("C12", "Device:C", 1, "10uF/25V", "Capacitor_SMD:C_0805_2012Metric", 158.75, 50.8),
     # --- 3-phase gate driver ---
     ("U3",  "cameflex:JY213L", 1, "JY213L", "Package_SO:TSSOP-20_4.4x6.5mm_P0.65mm", 165.1, 78.74),
     # --- bootstrap diodes + caps ---
     ("D1",  "Device:D", 1, "1N4148", "Diode_SMD:D_SOD-123", 165.1, 104.14),
     ("D2",  "Device:D", 1, "1N4148", "Diode_SMD:D_SOD-123", 177.8, 104.14),
     ("D3",  "Device:D", 1, "1N4148", "Diode_SMD:D_SOD-123", 190.5, 104.14),
-    ("C13", "Device:C", 1, "10uF/25V", "Capacitor_SMD:C_0805_2012Metric", 165.1, 116.84),
-    ("C14", "Device:C", 1, "10uF/25V", "Capacitor_SMD:C_0805_2012Metric", 177.8, 116.84),
-    ("C15", "Device:C", 1, "10uF/25V", "Capacitor_SMD:C_0805_2012Metric", 203.2, 116.84),
+    ("C13", "Device:C", 1, "1uF/50V", "Capacitor_SMD:C_0805_2012Metric", 165.1, 116.84),
+    ("C14", "Device:C", 1, "1uF/50V", "Capacitor_SMD:C_0805_2012Metric", 177.8, 116.84),
+    ("C15", "Device:C", 1, "1uF/50V", "Capacitor_SMD:C_0805_2012Metric", 203.2, 116.84),
     # --- driver-out gate resistors ---
     ("R14", "Device:R_US", 1, "15R", "Resistor_SMD:R_0805_2012Metric", 190.5, 60.96),
     ("R15", "Device:R_US", 1, "15R", "Resistor_SMD:R_0805_2012Metric", 190.5, 76.2),
@@ -248,13 +248,11 @@ COMPS = [
     ("U5",  "74xx:74HC14", 5, "74HC14", "Package_SO:SOIC-14_3.9x8.7mm_P1.27mm", 137.16, 175.26),
     ("U5",  "74xx:74HC14", 6, "74HC14", "Package_SO:SOIC-14_3.9x8.7mm_P1.27mm", 157.48, 167.64),
     ("U5",  "74xx:74HC14", 7, "74HC14", "Package_SO:SOIC-14_3.9x8.7mm_P1.27mm", 121.92, 111.76),
-    ("C19", "Device:C", 1, "100nF", "Capacitor_SMD:C_0805_2012Metric", 116.84, 114.3),
-    ("C20", "Device:C", 1, "100nF", "Capacitor_SMD:C_0805_2012Metric", 124.46, 114.3),
+    ("C19", "Device:C", 1, "100nF/50V", "Capacitor_SMD:C_0805_2012Metric", 116.84, 114.3),
+    ("C20", "Device:C", 1, "100nF/50V", "Capacitor_SMD:C_0805_2012Metric", 124.46, 114.3),
     # --- control side ---
     ("U6",  "RF_Module:WEMOS_C3_mini", 1, "ESP32-C3-SuperMini", "local:ESP32-C3-SuperMini", 165.1, 208.28),
-    ("U2",  "Transistor_FET:CSD13380F3", 1, "CSD13380F3", "Package_TO_SOT_SMD:SOT-23-3", 129.54, 220.98),
     ("R7",  "Device:R_US", 1, "100R", "Resistor_SMD:R_0805_2012Metric", 139.7, 210.82),
-    ("R6",  "Device:R_US", 1, "10k", "Resistor_SMD:R_0805_2012Metric", 121.92, 195.58),
     ("R4",  "Device:R_US", 1, "2.2k", "Resistor_SMD:R_0805_2012Metric", 116.84, 187.96),
     ("R5",  "Device:R_US", 1, "3.3k", "Resistor_SMD:R_0805_2012Metric", 124.46, 187.96),
     ("C6",  "Device:C", 1, "100nF", "Capacitor_SMD:C_0805_2012Metric", 132.08, 187.96),
@@ -277,7 +275,7 @@ NETS = {
               ("U8","2"), ("U7","2"), ("U3","8"), ("Q2","6"), ("Q3","6"), ("Q4","6"),
               ("U1","3"), ("U6","15"), ("U4","11"), ("U5","7"),
               ("R29","2"), ("R30","2"), ("R31","2"), ("R5","2"), ("C6","2"),
-              ("LED1","1"), ("LED2","1"), ("U2","2"),
+              ("LED1","1"), ("LED2","1"),
               ("C16","2"), ("C17","2"), ("C18","2"), ("C21","2"), ("C19","2"), ("C20","2"),
               ("C11","2"), ("C12","2"),
               ("U4","12"), ("U5","9"), ("U5","11"), ("U5","13"),
@@ -285,7 +283,7 @@ NETS = {
     "ISENSE_F": [("U1","2"), ("R36","1"), ("C21","1")],
     "+12V":  [("U8","3"), ("U7","1"), ("C3","1"), ("C11","1"), ("C12","1"), ("U3","7"), ("D1","2"), ("D2","2"), ("D3","2")],
     "+5V":   [("U7","3"), ("C4","1"), ("U1","4"), ("U4","4"), ("U5","14"), ("U6","16"),
-              ("J3","5"), ("R20","1"), ("R6","2"), ("R33","2"), ("R35","2"),
+              ("J3","5"), ("R20","1"), ("R33","2"), ("R35","2"),
               ("C19","1"), ("C20","1")],
     "+3.3V": [("U6","14"), ("RV1","1")],
     # ---- phases ----
@@ -338,9 +336,11 @@ NETS = {
     "HALL_OUT_B": [("U5","4"), ("U1","14")],
     "HALL_OUT_C": [("U5","6"), ("U1","15")],
     # ---- control ----
-    "VR":     [("U1","16"), ("U2","3"), ("R6","1")],
+    # R7 is a series resistor from the ESP32 PWM straight into VR. The JYQD
+    # datasheet accepts PWM 1-20 kHz on VR directly; the old open-drain
+    # inverter (U2 + R6) inverted the control and is gone.
+    "VR":     [("U1","16"), ("R7","2")],
     "PWM_OUT":[("U6","10"), ("R7","1")],
-    "PWM_G":  [("R7","2"), ("U2","1")],
     "FG":     [("U1","6"), ("R4","1")],
     "RPM_IN": [("R4","2"), ("R5","1"), ("C6","1"), ("U6","9")],
     "POT_ADC":[("RV1","2"), ("U6","12")],

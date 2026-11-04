@@ -28,7 +28,7 @@ internally to the JY01). No control port, no GPIO breakouts.
  JY01 ──gate R── JY213L ──gate R── JY2605M ×3 ── phases A/B/C (J6)
    │                │
  Hall amp (5V): RC → LM324(×11) → 74HC14 → JY01 Hall inputs
- ESP32-C3: FG (scaled) / PWM / VR (open-drain) / EL / trim pot
+ ESP32-C3: FG (scaled) / PWM → VR / EL / trim pot
 ```
 
 - **Power tree**: `V_IN` (J5 P+) → U8 L7812 → `+12V` (gate-driver VCC) → U7 L7805 →
@@ -41,8 +41,13 @@ internally to the JY01). No control port, no GPIO breakouts.
 
 - **78xx regulators**: with 12–36 V input keep `V_IN ≤ 28 V` for dropout/power margin
   (12 V nominal recommended).
+- **PWM → VR**: GPIO1 drives the JY01 `VR` node through **R7 (100 Ω)**, directly. The
+  JYQD datasheet accepts PWM 1–20 kHz on `VR` and averages it internally, so no level
+  shifter is needed. Max drive is 3.3 V of the 0.1–5 V range ≈ 66 % speed.
 - **GPIO4 → EL level shift**: EL is pulled up to **+5V** (R33 10 kΩ); GPIO4 drives it
-  open-drain through R34 (1 kΩ). Configure GPIO4 as open-drain in firmware.
+  open-drain through R34 (1 kΩ). Configure GPIO4 as open-drain in firmware. Per the
+  JYQD datasheet, EL high/floating **allows** operation and GND forbids it, so the
+  motor is enabled by default at power-up.
 - **FG scaling**: JY01 FG (5 V) → R4 2.2 k / R5 3.3 k divider → GPIO0 (RPM in, 3.3 V).
 - **ESP32 pin usage**: GPIO0=RPM (FG), GPIO1=PWM→VR, GPIO2=**unconnected** (boot
   strapping pin, internal pull-up holds it high), GPIO3=trim ADC (ADC1_CH3),
@@ -56,7 +61,7 @@ Checks performed on the exact fabrication data (`fab/`), all passing:
 | Check | Result |
 |---|---|
 | DRC (`--severity-all`) | 0 violations, 0 unconnected items |
-| Schematic parity | 0 genuine (268 cosmetic: root-sheet `/` prefix, footprint lib prefix) |
+| Schematic parity | 0 genuine (266 cosmetic: root-sheet `/` prefix, footprint lib prefix) |
 | Outline closure | closed Edge.Cuts loop, 0 open endpoints, 64.1 × 98.1 mm |
 | Pads outside outline | 0 |
 | Orphan nets (1 pad) | none |
@@ -117,17 +122,17 @@ in `PCB/V2/` alongside it, so both stay buildable and comparable.
 | Layers | 2 | **4** (In1 = solid GND plane) |
 | Signal layers | 2 | 3 (F.Cu, In2.Cu, B.Cu) |
 | Phase copper (avg) | 0.33–0.39 mm | **0.67–0.74 mm** |
-| Traces / vias | 1277 / 142 | 916 / 113 |
+| Traces / vias | 1277 / 142 | 904 / 113 |
 | DRC | 0 / 0 | 0 / 0 |
 
 - **Schematic**: complete & verified — netlist matches the design table **223/234 pins**
   (floating pins are the 3 unused 74HC14 gate outputs + 8 spare ESP32 GPIOs).
 - **Board**: **fully routed, DRC-clean, fab package generated** — 64.1 mm × 98.1 mm
-  (5 mm rounded corners), 83 footprints (69 components + 4 M3 holes + 10 test points).
-  - 916 traces (3058 mm), 113 vias, 4 zones (solid GND plane on In1 + GND pours on
+  (5 mm rounded corners), 80 footprints (67 components + 4 M3 holes + 9 test points).
+  - 904 traces, 113 vias, 4 zones (solid GND plane on In1 + GND pours on
     F.Cu / B.Cu / In2.Cu)
   - **DRC: 0 violations, 0 unconnected items** (`kicad-cli pcb drc --severity-all`)
-  - **Schematic parity: 0 genuine mismatches** — the 268 reported items are cosmetic only
+  - **Schematic parity: 0 genuine mismatches** — the 266 reported items are cosmetic only
     (schematic nets carry the root-sheet `/` prefix; footprints are reported without their
     library prefix). Verified programmatically: 0 net-name differences, 0 footprint
     differences after normalisation, 0 extra footprints.
@@ -169,7 +174,7 @@ clearance wall. Length-weighted averages:
 | Under J6 | Q2/Q3/Q4 (JY2605M) with R1 shunt |
 | Right of the FETs | U3 (JY213L), bootstrap C13–C15 + D1–D3, gate resistors R14–R19 |
 | Middle | U1 (JY01) + R8–R13, then the Hall amp (U4 LM324, U5 74HC14, R21–R31) |
-| Bottom | U6 (ESP32-C3), U2, RV1, LEDs |
+| Bottom | U6 (ESP32-C3), RV1, LEDs |
 
 `U3` sits clear of the FET row on purpose: its 0.65 mm-pitch phase-sense pins need a
 fanout corridor, and placing it in line with the FETs makes them unreachable.
@@ -260,9 +265,9 @@ from that catalogue can fit them: **U1 (JY01)**, **U3 (JY213L)** and
 **Q2–Q4 (JY2605M)**. They are only sold through Alibaba/AliExpress/specialist
 vendors. Either hand-solder them or supply them as consigned parts.
 
-**Test points.** Ten 1.5 mm probe pads are on the top side for bring-up
-(`V_IN`, `PNEG`, `+12V`, `+5V`, `+3.3V`, `VR`, `PWM_OUT`, `RPM_IN`, `ISENSE_F`,
-`GND`). They are board-only and excluded from the BOM/CPL, so they cost nothing.
+**Test points.** Nine 1.5 mm probe pads are on the top side for bring-up
+(`V_IN`, `PNEG`, `+12V`, `+5V`, `+3.3V`, `PWM_OUT`, `RPM_IN`, `ISENSE_F`,
+`GND`). `VR` and `EL` have no pad — probe them on R7 pin 2 and R33 pin 1. They are board-only and excluded from the BOM/CPL, so they cost nothing.
 Positions, expected voltages and a staged bring-up procedure are in
 [`TESTPLAN.md`](TESTPLAN.md).
 
@@ -273,7 +278,7 @@ hand as well.
 `fab/bom_jlcpcb.csv` (27 lines) and `fab/cpl_jlcpcb.csv` (65 placements) are in
 JLCPCB's upload format.
 
-**LCSC part numbers: 24 of 27 lines are filled**, each verified against live
+**LCSC part numbers: 23 of 26 lines are filled**, each verified against live
 LCSC/JLCPCB stock (see `tools/lcsc_map.csv` for the mapping and manufacturer
 part). Only these remain blank, and only because LCSC does not carry them:
 
@@ -286,10 +291,11 @@ Values that changed so the parts are actually orderable:
 - `C1/C2` are **470 µF/63 V** — 480 µF is not a real capacitor value.
 - `C3–C5` are 220 µF/50 V, D10 × 12.5 mm, **5 mm pitch** (matches the D10/P5 land).
 - `R1` is a 5 mΩ ±1 % **3 W** 2512 shunt.
-- **U2 is a 2N7002**, not `CSD13380F3`. The original is a TI FemtoFET measuring
-  0.73 × 0.64 mm, which cannot sit on a SOT-23-3 land; 2N7002 is pin-compatible,
-  has the same function (open-drain pull-down of the JY01 VR node), and is a
-  JLCPCB basic part.
+- **U2 and R6 are gone.** The old VR interface was an open-drain N-MOSFET with a
+  5 V pull-up, which **inverted** the speed control — idle became full speed and the
+  PID ran as positive feedback. It was also built around `CSD13380F3`, a 0.73 × 0.64 mm
+  TI FemtoFET that cannot sit on the SOT-23-3 land. Both parts were removed and R7 now
+  feeds `VR` directly.
 
 > **ERC note**: the schematic reports 28 ERC items, all accounted for — 11 unconnected
 > pins are the intentionally-unused 74HC14 gates and spare ESP32 GPIOs; 3 are library

@@ -164,13 +164,14 @@ Vout = 5V × 3.3 / (2.2 + 3.3) = **3.0V** (safe). If your board's
 
 ### VR logic-level note (3.3V vs 5V)
 
-The JYQD `VR` input is designed around 5V logic. In practice the
-ESP32-C3's 3.3V PWM usually drives it fine, but if you see any of
-these, add a level shifter (single N-MOSFET + pull-up, or a TXS0102):
+The JYQD `VR` input is designed around 5V logic, but it accepts PWM directly
+(1–20 kHz, 0–100 % duty) and averages it internally, so a 3.3 V PWM through a
+series resistor works: 0 % duty = 0 V = stop, 100 % duty = 3.3 V ≈ 66 % speed.
 
-- Motor won't reach target RPM even at PWM 255
-- Speed is erratic at high duty, clean at low duty
-- `VR` high-level measures < 3V at the driver pin
+If you need the full 5 V range, add a **non-inverting** level shifter (e.g. a
+TXS0102 or a proper gate-driver buffer). Do **not** use a single N-MOSFET with a
+pull-up — that inverts the signal, so idle becomes full speed and the PID turns
+into positive feedback. An earlier PCB revision made exactly that mistake.
 
 ### Layout rules (from the driver datasheet)
 

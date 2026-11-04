@@ -6,9 +6,9 @@ slightly wrong, not as a dead board.
 
 ## Test points
 
-Ten probe pads are on the board, 1.5 mm bare copper on the top side, unlabelled
-on the silkscreen (positions below). `EL` has no pad — probe it at **R33 pin 1**
-or **R34 pin 2**, they are 0805 pads and easy to touch.
+Nine probe pads are on the board, 1.5 mm bare copper on the top side, unlabelled
+on the silkscreen (positions below). `VR` and `EL` have no pad — probe them at
+**R7 pin 2** and **R33 pin 1** respectively; they are 0805 pads and easy to touch.
 
 | TP | Net | Position (mm) | Expected |
 |---|---|---|---|
@@ -17,11 +17,13 @@ or **R34 pin 2**, they are 0805 pads and easy to touch.
 | TP3 | +12V | 109.05, 92.79 | 11.3 V at 12 V in, 12.0 V at ≥15 V in |
 | TP4 | +5V | 102.12, 109.56 | 5.0 V ±0.25 |
 | TP5 | +3.3V | 108.19, 122.78 | 3.3 V ±0.15 |
-| TP6 | VR | 131.00, 117.07 | 0–5 V, follows PWM |
 | TP7 | PWM_OUT | 133.50, 110.83 | 0–3.3 V PWM from the ESP32 |
 | TP8 | RPM_IN | 123.39, 111.75 | 0–3.3 V pulses when the motor turns |
 | TP9 | ISENSE_F | 154.88, 104.34 | mV-range, rises with load |
 | TP10 | GND | 158.60, 117.24 | 0 V reference |
+
+There is no TP6 — the VR probe pad was dropped because the area around R7 is too
+dense to route it cleanly. Probe `R7 pin 2` instead.
 
 ## Stage 0 — unpowered
 
@@ -64,9 +66,9 @@ driver's 5 V rail while also on USB without checking, see the main README).
 1. **Boot**: serial console at 115200 shows the banner and the pin report.
 2. **PWM**: with the motor disconnected, set a non-zero target. TP7 should show
    a PWM waveform 0–3.3 V. Confirm the duty changes with the command.
-3. **VR tracking**: TP6 should move opposite to the PWM duty — U2 pulls VR down,
-   R6 pulls it up. At 0 % duty VR ≈ 5 V; at 100 % duty VR ≈ 0.4 V.
-   If VR does not move, U2 or R7 is the suspect.
+3. **VR tracking**: probe **R7 pin 2**. VR should move *with* the duty — 0 % duty
+   ≈ 0 V, 100 % duty ≈ 3.3 V. It is a direct connection through R7, so there is no
+   inversion. If VR does not move, R7 or the GPIO1 trace is the suspect.
 4. **EL**: probe R33 pin 1. Pulled to +5 V through R33, so the driver is in its
    default enable state. Confirm what the JY01 does with that — the polarity of
    EL on this chip family is still unverified.
@@ -114,7 +116,7 @@ The phases are 0.75 mm average on 2 oz, good for roughly 4 A per phase. The
 | No `+12V` | 7812 reversed or not seated; input below dropout |
 | `+5V` low, `+12V` fine | 7805 or C4 |
 | `+3.3V` low or unstable | ESP32 module not seated, or USB/5 V contention |
-| VR does not move with PWM | U2 (2N7002) orientation, R7, or PWM_OUT not reaching it |
+| VR does not move with PWM | R7, or PWM_OUT not reaching it |
 | Motor buzzes, no rotation | Hall order (Ha/Hb/Hc) or phase order (MA/MB/MC) |
 | RPM reads double/half | `PULSES_PER_REV` mismatch |
 | Random resets under load | `+5V` sagging, or the ESP32 fed from the driver rail |
