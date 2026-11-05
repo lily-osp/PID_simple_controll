@@ -4,6 +4,8 @@ How to run the firmware on a **standard JYQD-V7.3E3 driver board** with a bare
 **ESP32-C3 Super Mini** module, before the custom PCB exists. The pin map is
 identical to `PCB/V1`, so firmware tuned here transfers unchanged.
 
+![Bench wiring setup](bench_setup.jpg)
+
 Source for the driver side: [`controller_specification/JYQD-V7.3E3-English.pdf`](controller_specification/JYQD-V7.3E3-English.pdf).
 Motor data: [`motor_specification/42BLF.pdf`](motor_specification/42BLF.pdf).
 
