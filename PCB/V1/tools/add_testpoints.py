@@ -5,7 +5,8 @@ Test points already on the board are kept and never renumbered; the script only
 fills in the nets that still lack one. A pad is placed *centred on existing
 copper of its own net* where possible, so it connects by overlap. When no such
 spot exists, a short stub track (0.25 mm, F.Cu) is routed from the net's copper
-to the nearest clear spot.
+to the nearest clear spot. Use `--compact` for 1.0 mm pads when the standard
+1.5 mm pad cannot fit; use `--micro` only for 0.8 mm pads in dense areas.
 
 A candidate is only accepted if the pad clears every other net by PAD_CLEARANCE,
 clears the silkscreen, sits at least EDGE_MARGIN from the board edge, and stays
@@ -21,17 +22,20 @@ import sys
 sys.path.insert(0, "/usr/lib/python3/dist-packages")
 import pcbnew
 
-BOARD = sys.argv[1] if len(sys.argv) > 1 else "bldc_esp32_driver.kicad_pcb"
+BOARD = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") \
+    else "bldc_esp32_driver.kicad_pcb"
+COMPACT = "--compact" in sys.argv[1:]
+MICRO = "--micro" in sys.argv[1:]
 
 # reference to reuse when a pad is being re-placed after a layout change, so the
 # numbers already printed in TESTPLAN.md stay valid
 PREFER = {"+3.3V": "TP5", "RPM_IN": "TP8", "GPIO5": "TP13"}
 MM = 1_000_000
-PAD_D = 1.5
-PAD_CLEARANCE = 0.30   # pad edge to any other net
-EDGE_MARGIN = 1.2      # pad centre to board edge
-TRACK_W = 0.25
-TRACK_CLEARANCE = 0.28
+PAD_D = 0.8 if MICRO else (1.0 if COMPACT else 1.5)
+PAD_CLEARANCE = 0.15 if MICRO else (0.20 if COMPACT else 0.30)
+EDGE_MARGIN = 0.8 if MICRO else (0.9 if COMPACT else 1.2)
+TRACK_W = 0.18 if MICRO else (0.20 if COMPACT else 0.25)
+TRACK_CLEARANCE = 0.15 if MICRO else (0.20 if COMPACT else 0.28)
 
 # nets worth probing during bring-up
 TARGETS = ["V_IN", "PNEG", "+12V", "+5V", "+3.3V", "VR", "EL", "ZF",
@@ -41,6 +45,12 @@ TARGETS = ["V_IN", "PNEG", "+12V", "+5V", "+3.3V", "VR", "EL", "ZF",
            "GPIO4", "POT_ADC",
            "VB_A", "VB_B", "VB_C",
            "GQ_GH1", "GQ_GH2", "GQ_GH3", "GQ_GL1", "GQ_GL2", "GQ_GL3"]
+
+# GPIO5 is intentionally left on the existing R32 probe location in compact
+# mode: the nearby ESP32 pad has only 0.148 mm of clearance from its existing
+# escape, so adding a branch would violate the board's 0.20 mm rule.
+if COMPACT or MICRO:
+    TARGETS = [net for net in TARGETS if net != "GPIO5"]
 
 b = pcbnew.LoadBoard(BOARD)
 b.BuildConnectivity()
@@ -62,7 +72,10 @@ bodies = []      # component courtyards to stay outside of
 obstacles = []   # (x1,y1,x2,y2,radius,net)
 for t in b.GetTracks():
     s, e = t.GetStart(), t.GetEnd()
-    r = max(t.GetWidth() / 2 / MM, 0.15)
+    if t.Type() == pcbnew.PCB_VIA_T:
+        r = max(t.GetWidth(pcbnew.F_Cu) / 2 / MM, 0.15)
+    else:
+        r = max(t.GetWidth() / 2 / MM, 0.15)
     obstacles.append((s.x / MM, s.y / MM, e.x / MM, e.y / MM, r, t.GetNetname()))
 for fp in b.GetFootprints():
     if not fp.GetReference().startswith("TP"):
@@ -163,7 +176,7 @@ def fcu_samples(net):
     return ends + mids
 
 
-def add_pad(net, x, y, ref=None):
+def add_pad(net, x, y, ref=None, layer=pcbnew.F_Cu):
     global next_ref
     n = next(v for v in b.GetNetsByName().values() if v.GetNetname() == net)
     fp = pcbnew.FOOTPRINT(b)
@@ -177,8 +190,12 @@ def add_pad(net, x, y, ref=None):
     pad.SetAttribute(pcbnew.PAD_ATTRIB_SMD)
     pad.SetSize(pcbnew.VECTOR2I(int(PAD_D * MM), int(PAD_D * MM)))
     ls = pcbnew.LSET()
-    ls.AddLayer(pcbnew.F_Cu)
-    ls.AddLayer(pcbnew.F_Mask)
+    ls.AddLayer(layer)
+    ls.AddLayer(pcbnew.B_Mask if layer == pcbnew.B_Cu else pcbnew.F_Mask)
+    if layer == pcbnew.F_Cu:
+        ls.AddLayer(pcbnew.F_Paste)
+    else:
+        ls.AddLayer(pcbnew.B_Paste)
     pad.SetLayerSet(ls)
     pad.SetPosition(fp.GetPosition())   # absolute; zero local offset
     pad.SetNet(n)
@@ -264,10 +281,30 @@ for net in TARGETS:
         b.Add(t)
     placed.append((ref, net, spot, anchor))
 
+# HALL_OUT_A is routed through an existing via beside the hall-filter IC. A
+# bottom-side pad over that via gives a probeable point without crowding U5 or
+# adding another top-side stub through the filter escape.
+if (COMPACT or MICRO) and "HALL_OUT_A" not in probed:
+    hall_net = next((v for v in b.GetNetsByName().values()
+                     if v.GetNetname() == "HALL_OUT_A"), None)
+    hall_via = next((v for v in b.GetTracks()
+                     if v.Type() == pcbnew.PCB_VIA_T
+                     if v.GetNetname() == "HALL_OUT_A"), None)
+    if hall_net is not None and hall_via is not None:
+        q = hall_via.GetPosition()
+        x, y = q.x / MM, q.y / MM
+        ref = add_pad("HALL_OUT_A", x, y, layer=pcbnew.B_Cu)
+        placed.append((ref, "HALL_OUT_A", (x, y), "bottom via"))
+        skipped = [(net, why) for net, why in skipped
+                   if net != "HALL_OUT_A"]
+
 b.Save(BOARD)
 print(f"new test points: {len(placed)}  (board total: {len(probed) + len(placed)})")
 for ref, net, (x, y), anchor in placed:
-    how = "on copper" if anchor is None else f"stub from ({anchor[0]:.2f},{anchor[1]:.2f})"
+    if anchor == "bottom via":
+        how = "bottom pad over via"
+    else:
+        how = "on copper" if anchor is None else f"stub from ({anchor[0]:.2f},{anchor[1]:.2f})"
     print(f"  {ref:<5} {net:<12} ({x:6.2f},{y:6.2f})  {how}")
 if skipped:
     print("skipped:")

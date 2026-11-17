@@ -128,7 +128,7 @@ in `PCB/V2/` alongside it, so both stay buildable and comparable.
 - **Schematic**: complete & verified — netlist matches the design table **223/234 pins**
   (floating pins are the 3 unused 74HC14 gate outputs + 8 spare ESP32 GPIOs).
 - **Board**: **fully routed, DRC-clean, fab package generated** — 64.1 mm × 98.1 mm
-  (5 mm rounded corners), 92 footprints (67 components + 4 M3 holes + 21 test points).
+  (5 mm rounded corners), 97 footprints (67 components + 4 M3 holes + 26 test points).
   - 862 traces, 121 vias, 4 zones (solid GND plane on In1 + GND pours on
     F.Cu / B.Cu / In2.Cu)
   - **DRC: 0 violations, 0 unconnected items** (`kicad-cli pcb drc --severity-all`)
@@ -265,18 +265,18 @@ from that catalogue can fit them: **U1 (JY01)**, **U3 (JY213L)** and
 **Q2–Q4 (JY2605M)**. They are only sold through Alibaba/AliExpress/specialist
 vendors. Either hand-solder them or supply them as consigned parts.
 
-**Test points.** Twenty-one 1.5 mm probe pads are on the top side, each with its
-number printed on the silkscreen next to it. They cover the rails (`V_IN`,
+**Test points.** Twenty-six probe pads are on the board, each with its number
+printed on the silkscreen next to it. TP1–TP27 are top-side pads; TP28 is a
+bottom-side pad over an existing `HALL_OUT_A` via. They cover the rails (`V_IN`,
 `PNEG`, `+12V`, `+5V`, `+3.3V`, `GND`), the control path (`VR`, `ZF`,
 `PWM_OUT`, `RPM_IN`, `GPIO4`, `POT_ADC`), the analogue front end (`ISENSE_F`,
-`HALL_OUT_B`, `HALL_OUT_C`) and the power stage (`VB_A` and five of the six FET
-gates).
+`HALL_OUT_A`, `HALL_OUT_B`, `HALL_OUT_C`) and the power stage (`VB_A`,
+`VB_B`, `VB_C` and all six FET gates).
 
-Six nets have no pad because the area around them is fully occupied: probe `EL`
-at R33 pin 1, `HALL_OUT_A` at U5 pin 2, `GPIO5` at R32 pin 1, `VB_B`/`VB_C` at
-C14/C15 pin 1, and `GQ_GH3` at Q4 pin 1. The pads are board-only and excluded
-from the BOM/CPL, so they cost nothing. Positions, expected voltages and a staged
-bring-up procedure are in [`TESTPLAN.md`](TESTPLAN.md).
+Only `GPIO5` remains a component-pad probe at R32 pin 1 because the nearby ESP32
+escape has no legal branch site at the board's 0.20 mm clearance rule. The pads
+are board-only and excluded from the BOM/CPL, so they cost nothing. Positions,
+expected voltages and a staged bring-up procedure are in [`TESTPLAN.md`](TESTPLAN.md).
 
 The through-hole parts (C1–C5, U7, U8, RV1) are in the CPL, but JLCPCB's
 economical PCBA is SMD-only — use their through-hole option or solder those by

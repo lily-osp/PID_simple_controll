@@ -6,20 +6,17 @@ slightly wrong, not as a dead board.
 
 ## Test points
 
-Twenty-one probe pads are on the board, 1.5 mm bare copper on the top side, each
-with its **number printed on the silkscreen** beside it (the "TP" prefix is
-dropped — pad `16` is `TP16`). There is no TP6 and no TP13: both were dropped
-when the area around them turned out to be occupied, and the numbers were not
-reused so the references stay stable.
+Twenty-six probe pads are on the board. TP1–TP27 are 1.5 mm or 1.0 mm bare
+copper on the top side; TP28 is a 1.0 mm bottom-side pad over an existing via.
+Each has its **number printed on the silkscreen** beside it (the "TP" prefix is
+dropped — pad `16` is `TP16`). There is no TP6: it was dropped when the area
+around it turned out to be occupied. TP13 remains reserved for the GPIO5
+component-pad probe so the references stay stable.
 
-Five nets have no pad and are probed on a component pad instead:
+One net has no dedicated pad and is probed on a component pad instead:
 
 | Net | Probe at | Why no pad |
 |---|---|---|
-| `EL` | R33 pin 1 | boxed in by +5V / FG |
-| `HALL_OUT_A` | U5 pin 2 | blocked by the hall filter tracks |
-| `VB_B`, `VB_C` | C14 / C15 pin 1 | no free spot near the power stage |
-| `GQ_GH3` | Q4 pin 1 | same |
 | `GPIO5` | R32 pin 1 | module, mounting hole and board edge leave no room |
 
 | TP | Net | Position (mm) | Expected |
@@ -45,6 +42,11 @@ Five nets have no pad and are probed on a component pad instead:
 | TP21 | GQ_GL1 | 102.01, 72.44 | 0–12 V gate drive, phase A low side |
 | TP22 | GQ_GL2 | 112.10, 71.07 | 0–12 V gate drive, phase B low side |
 | TP23 | GQ_GL3 | 155.19, 74.28 | 0–12 V gate drive, phase C low side |
+| TP24 | EL | 151.34, 81.71 | ≈5 V allowed / ≈0 V forbidden |
+| TP25 | VB_B | 151.93, 68.28 | V_IN + ~11 V when the high side switches |
+| TP26 | VB_C | 158.95, 65.90 | V_IN + ~11 V when the high side switches |
+| TP27 | GQ_GH3 | 121.41, 75.36 | 0–12 V gate drive, phase C high side |
+| TP28 | HALL_OUT_A | 112.56, 98.51, **bottom side** | 0–5 V square wave, shaft turning |
 
 ## Stage 0 — unpowered
 
@@ -91,10 +93,10 @@ driver's 5 V rail while also on USB without checking, see the main README).
    ≈ 0 V, 100 % duty ≈ 3.3 V. It is a direct connection through R7, so there is no
    inversion. If VR does not move, R7 or the GPIO1 trace is the suspect.
    (The pad sits on a short stub off the VR node, so it reads the same as R7 pin 2.)
-4. **EL chain**: **TP16** `GPIO4` is the MCU side, **R33 pin 1** is the driver
-   side. GPIO4 high → EL ≈5 V → driver *allowed* to run; GPIO4 low → EL ≈0 V →
-   forbidden. Pulling GPIO4 high while the console reports "disabled" means the
-   firmware and the schematic disagree; check `EL_ACTIVE_LOW` in `config.h`.
+4. **EL chain**: **TP16** `GPIO4` is the MCU side and **TP24** is the driver
+   side. GPIO4 high → EL ≈5 V → driver *allowed* to run; GPIO4 low → EL ≈0 V
+   → forbidden. Pulling GPIO4 high while the console reports "disabled" means
+   the firmware and the schematic disagree; check `EL_ACTIVE_LOW` in `config.h`.
 5. **Trim pot**: **TP17** `POT_ADC` should sit near 1.65 V at mid-travel and move
    smoothly to both ends. A stuck value means the wiper (RV1 pin 2) is open.
 
@@ -106,7 +108,7 @@ Connect the motor's Hall connector to J3. Rotate the shaft **by hand**.
 |---|---|
 | TP8 `RPM_IN` | square pulses, 0–3.3 V, one per FG edge |
 | TP14 / TP15 `HALL_OUT_B` / `_C` | 0–5 V square waves, 120° apart, 50 % duty |
-| TP14/TP15 vs U5 pin 2 (`HALL_OUT_A`) | three evenly spaced phases |
+| TP14/TP15/TP28 | three evenly spaced phases |
 | Pulse rate | consistent with `PULSES_PER_REV` in the firmware |
 | U4/U5 outputs | clean logic levels, no chatter at rest |
 
@@ -122,13 +124,13 @@ Motor connected, shaft free, **current limit 500 mA**, target low.
 3. Check Q2–Q4 and U3 temperature after 30 s: warm is fine, hot is not.
 4. Sweep the target 500 → 1500 RPM. RPM should track without oscillation. If it
    hunts, turn the trim pot down (it scales all three gains).
-5. **Gate drive sanity** (scope, if available): probe **TP19/TP20/TP21/TP22/TP23**
+5. **Gate drive sanity** (scope, if available): probe **TP19/TP20/TP21/TP22/TP23/TP27**
    (the FET gates) one at a time, then a phase node. Expect 0–12 V square edges,
    no ringing above ~2× V_IN, and **never** high-side and low-side of the same
-   phase high together (shoot-through). Q4 pin 1 is the missing `GQ_GH3`.
-6. **Bootstrap**: **TP18** `VB_A` should sit at V_IN + ~11 V while phase A's high
-   side switches, and recharge every cycle. If it sags, C13 is open. `VB_B` and
-   `VB_C` have no pad — probe C14 / C15 pin 1.
+   phase high together (shoot-through).
+6. **Bootstrap**: **TP18/TP25/TP26** (`VB_A/B/C`) should sit at V_IN + ~11 V
+   while the corresponding high side switches, and recharge every cycle. If a
+   rail sags, inspect its bootstrap capacitor C13/C14/C15.
 
 ## Stage 5 — load
 
