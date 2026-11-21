@@ -80,10 +80,55 @@ lib = lib[:-1] + "\n" + l7805b + "\n" + l7812b + "\n" + conn6b + "\n" + conn2b +
 # JY213L top pins 20/19/18 all sit at x=0 (same column) with upward stubs -> spread
 # horizontally so their up-wires don't collide (netlist neutrality: only pin x moves)
 _ji = lib.find('(symbol "cameflex:JY213L"')
+if _ji < 0:
+    _ji = lib.find('(symbol "cameflex:FD6288T"')
 _jb, _je = brace(lib, _ji)
 _jb = _jb.replace('(at 0 17.78 270)', '(at -2.54 17.78 270)')
 _jb = _jb.replace('(at 0 12.7 270)', '(at 2.54 12.7 270)')
+# U3 is now the Fortior FD6288T: same TSSOP-20 land, same pin order as the
+# JY213L it replaces (1-3 HIN, 4-6 LIN, 7 VCC, 8 COM, 9-11 LO3..LO1,
+# 12-14 VS3/HO3/VB3, 15-17 VS2/HO2/VB2, 18-20 VS1/HO1/VB1), but it IS in the
+# LCSC catalogue (C97683).  It has no internal bootstrap diodes, which is why
+# D1-D3 stay on the board.
+_jb = _jb.replace('JY213L', 'FD6288T')
 lib = lib[:_ji] + _jb + lib[_je:]
+
+# ------------------------------------------------- JY2605M: real dual-N pinout
+# The old hand-made symbol invented a half-bridge pinout (G_H/D_H/S_H/...).
+# The real part (datasheet docs/controller_specification/JY2605M-dual-NMOS-DFN5x6.pdf)
+# is two INDEPENDENT N-channel FETs in a PowerPAK SO-8 / DFN5x6 dual:
+#   1 S1   2 G1   3 S2   4 G2   5,6 D2   7,8 D1
+# The half-bridge is formed on the board: D1 = V_IN, S1 = phase, D2 = phase,
+# S2 = GND, so FET1 is the high side and FET2 the low side.
+_q_pins = [
+    ("7", "D1", 7.62, 6.35, 180, "passive"),
+    ("8", "D1", 7.62, 3.81, 180, "passive"),
+    ("1", "S1", 7.62, 1.27, 180, "passive"),
+    ("5", "D2", 7.62, -1.27, 180, "passive"),
+    ("6", "D2", 7.62, -3.81, 180, "passive"),
+    ("3", "S2", 7.62, -6.35, 180, "passive"),
+    ("2", "G1", -7.62, 3.81, 0, "input"),
+    ("4", "G2", -7.62, -3.81, 0, "input"),
+]
+_q_pintxt = "".join(
+    f'(pin {typ} line (at {x} {y} {rot}) (length 2.54)\n'
+    f'\t(name "{nm}" (effects (font (size 1.27 1.27))))\n'
+    f'\t(number "{num}" (effects (font (size 1.27 1.27)))))\n'
+    for (num, nm, x, y, rot, typ) in _q_pins)
+_q_sym = f'''(symbol "cameflex:JY2605M_DualNMOS" (pin_names (offset 1.016)) (exclude_from_sim no) (in_bom yes) (on_board yes)
+    (property "Reference" "Q" (at 0 11.43 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "JY2605M" (at 0 -11.43 0) (effects (font (size 1.27 1.27))))
+    (property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
+    (property "Datasheet" "~" (at 0 0 0) (hide yes))
+    (symbol "JY2605M_DualNMOS_1_1"
+        (rectangle (start -5.08 8.89) (end 5.08 -8.89) (stroke (width 0.254) (type default)) (fill (type background)))
+        (text "dual N-MOS 60V" (at 0 8.89 0) (effects (font (size 1.0 1.0))))
+{_q_pintxt}    )
+)'''
+_qi = lib.find('(symbol "cameflex:JY2605M_DualNMOS"')
+assert _qi > 0
+_qb, _qe = brace(lib, _qi)
+lib = lib[:_qi] + _q_sym + lib[_qe:]
 
 # ---------------------------------------------------------------- WEMOS rewrite (pin numbers = physical pads)
 l_names = ["GPIO5","GPIO6","GPIO7","GPIO8","GPIO9","GPIO10","GPIO20","GPIO21"]
@@ -140,7 +185,7 @@ def P(libid, unit, unit_name):
     PINS[(libid, unit)] = parse_pins_merged(unit_name)
 
 P("cameflex:JY01", 1, "JY01_1_1")
-P("cameflex:JY213L", 1, "JY213L_1_1")
+P("cameflex:FD6288T", 1, "FD6288T_1_1")
 P("cameflex:JY2605M_DualNMOS", 1, "JY2605M_DualNMOS_1_1")
 P("RF_Module:WEMOS_C3_mini", 1, "WEMOS_C3_mini_1_1")
 P("Transistor_FET:CSD13380F3", 1, "CSD13380F3_1_1")
@@ -203,7 +248,7 @@ COMPS = [
     ("C11", "Device:C", 1, "100nF/50V", "Capacitor_SMD:C_0805_2012Metric", 149.86, 50.8),
     ("C12", "Device:C", 1, "10uF/25V", "Capacitor_SMD:C_0805_2012Metric", 158.75, 50.8),
     # --- 3-phase gate driver ---
-    ("U3",  "cameflex:JY213L", 1, "JY213L", "Package_SO:TSSOP-20_4.4x6.5mm_P0.65mm", 165.1, 78.74),
+    ("U3",  "cameflex:FD6288T", 1, "FD6288T", "Package_SO:TSSOP-20_4.4x6.5mm_P0.65mm", 165.1, 78.74),
     # --- bootstrap diodes + caps ---
     ("D1",  "Device:D", 1, "1N4148", "Diode_SMD:D_SOD-123", 165.1, 104.14),
     ("D2",  "Device:D", 1, "1N4148", "Diode_SMD:D_SOD-123", 177.8, 104.14),
@@ -219,9 +264,9 @@ COMPS = [
     ("R18", "Device:R_US", 1, "15R", "Resistor_SMD:R_0805_2012Metric", 190.5, 121.92),
     ("R19", "Device:R_US", 1, "15R", "Resistor_SMD:R_0805_2012Metric", 190.5, 137.16),
     # --- half-bridges ---
-    ("Q2",  "cameflex:JY2605M_DualNMOS", 1, "JY2605", "local:JY2605M_DFN8_5x6", 210.82, 55.88),
-    ("Q3",  "cameflex:JY2605M_DualNMOS", 1, "JY2605", "local:JY2605M_DFN8_5x6", 210.82, 76.2),
-    ("Q4",  "cameflex:JY2605M_DualNMOS", 1, "JY2605", "local:JY2605M_DFN8_5x6", 210.82, 96.52),
+    ("Q2",  "cameflex:JY2605M_DualNMOS", 1, "JY2605M", "local:JY2605M_PowerPAK_SO8_Dual", 210.82, 55.88),
+    ("Q3",  "cameflex:JY2605M_DualNMOS", 1, "JY2605M", "local:JY2605M_PowerPAK_SO8_Dual", 210.82, 76.2),
+    ("Q4",  "cameflex:JY2605M_DualNMOS", 1, "JY2605M", "local:JY2605M_PowerPAK_SO8_Dual", 210.82, 96.52),
     # --- hall amp: connectors, ICs, passives ---
     ("J3",  "Connector_Generic:Conn_01x05_Pin", 1, "GND,Hc,Hb,Ha,5V", "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical", 25.4, 124.46),
     ("R21", "Device:R_US", 1, "10k", "Resistor_SMD:R_0805_2012Metric", 41.91, 124.46),
@@ -269,14 +314,18 @@ COMPS = [
 # net table: netname -> [(ref, pin_number)]
 NETS = {
     # ---- power ----
-    "V_IN":  [("J5","1"), ("C1","1"), ("C2","1"), ("C5","1"), ("U8","1"), ("Q2","2"), ("Q2","8"), ("Q3","2"), ("Q3","8"), ("Q4","2"), ("Q4","8")],
-    "PNEG":  [("J5","2"), ("R1","1"), ("R36","2")],
+    "V_IN":  [("J5","1"), ("C1","1"), ("C2","1"), ("C5","1"), ("U8","1"),
+              # D1 of each dual = high-side drain (pins 7+8 are the same die pad)
+              ("Q2","7"), ("Q2","8"), ("Q3","7"), ("Q3","8"), ("Q4","7"), ("Q4","8")],
+    "PNEG":  [("J5","2"), ("R1","1"), ("U1","3"), ("C21","2")],
     "GND":   [("R1","2"), ("C1","2"), ("C2","2"), ("C5","2"), ("C3","2"), ("C4","2"),
-              ("U8","2"), ("U7","2"), ("U3","8"), ("Q2","6"), ("Q3","6"), ("Q4","6"),
-              ("U1","3"), ("U6","15"), ("U4","11"), ("U5","7"),
+              ("U8","2"), ("U7","2"), ("U3","8"),
+              # S2 of each dual = low-side source (bridge return, shunt high side)
+              ("Q2","3"), ("Q3","3"), ("Q4","3"), ("R36","2"),
+              ("U6","15"), ("U4","11"), ("U5","7"),
               ("R29","2"), ("R30","2"), ("R31","2"), ("R5","2"), ("C6","2"),
               ("LED1","1"), ("LED2","1"),
-              ("C16","2"), ("C17","2"), ("C18","2"), ("C21","2"), ("C19","2"), ("C20","2"),
+              ("C16","2"), ("C17","2"), ("C18","2"), ("C19","2"), ("C20","2"),
               ("C11","2"), ("C12","2"),
               ("U4","12"), ("U5","9"), ("U5","11"), ("U5","13"),
               ("J3","1"), ("RV1","3")],
@@ -287,9 +336,9 @@ NETS = {
               ("C19","1"), ("C20","1")],
     "+3.3V": [("U6","14"), ("RV1","1")],
     # ---- phases ----
-    "PH_A":  [("Q2","3"), ("Q2","5"), ("Q2","7"), ("U3","18"), ("C13","2"), ("J6","1")],
-    "PH_B":  [("Q3","3"), ("Q3","5"), ("Q3","7"), ("U3","15"), ("C14","2"), ("J6","2")],
-    "PH_C":  [("Q4","3"), ("Q4","5"), ("Q4","7"), ("U3","12"), ("C15","2"), ("J6","3")],
+    "PH_A":  [("Q2","1"), ("Q2","5"), ("Q2","6"), ("U3","18"), ("C13","2"), ("J6","1")],
+    "PH_B":  [("Q3","1"), ("Q3","5"), ("Q3","6"), ("U3","15"), ("C14","2"), ("J6","2")],
+    "PH_C":  [("Q4","1"), ("Q4","5"), ("Q4","6"), ("U3","12"), ("C15","2"), ("J6","3")],
     # ---- bootstrap: anode->VB? no: anode=pin2(A)->+12V, cathode=pin1(K)->VB ----
     "VB_A":  [("U3","20"), ("D1","1"), ("C13","1")],
     "VB_B":  [("U3","17"), ("D2","1"), ("C14","1")],
@@ -299,24 +348,24 @@ NETS = {
     "GI_HIN1":[("R8","2"), ("U3","1")],
     "GO_AB":  [("U1","8"), ("R9","1")],
     "GI_LIN1":[("R9","2"), ("U3","4")],
-    "GO_BT":  [("U1","10"), ("R10","1")],
+    "GO_BT":  [("U1","9"), ("R10","1")],
     "GI_HIN2":[("R10","2"), ("U3","2")],
-    "GO_BB":  [("U1","9"), ("R11","1")],
+    "GO_BB":  [("U1","10"), ("R11","1")],
     "GI_LIN2":[("R11","2"), ("U3","5")],
-    "GO_CT":  [("U1","12"), ("R12","1")],
+    "GO_CT":  [("U1","11"), ("R12","1")],
     "GI_HIN3":[("R12","2"), ("U3","3")],
-    "GO_CB":  [("U1","11"), ("R13","1")],
+    "GO_CB":  [("U1","12"), ("R13","1")],
     "GI_LIN3":[("R13","2"), ("U3","6")],
     "GP_HO1": [("U3","19"), ("R14","1")],
-    "GQ_GH1": [("R14","2"), ("Q2","1")],
+    "GQ_GH1": [("R14","2"), ("Q2","2")],
     "GP_LO1": [("U3","11"), ("R15","1")],
     "GQ_GL1": [("R15","2"), ("Q2","4")],
     "GP_HO2": [("U3","16"), ("R16","1")],
-    "GQ_GH2": [("R16","2"), ("Q3","1")],
+    "GQ_GH2": [("R16","2"), ("Q3","2")],
     "GP_LO2": [("U3","10"), ("R17","1")],
     "GQ_GL2": [("R17","2"), ("Q3","4")],
     "GP_HO3": [("U3","13"), ("R18","1")],
-    "GQ_GH3": [("R18","2"), ("Q4","1")],
+    "GQ_GH3": [("R18","2"), ("Q4","2")],
     "GP_LO3": [("U3","9"), ("R19","1")],
     "GQ_GL3": [("R19","2"), ("Q4","4")],
     # ---- hall amp chains: in -> RC filter -> gain(+11) -> schmitt ----
@@ -521,13 +570,17 @@ def emit():
     for idx, (ref, libid, unit, val, fp, x, y) in enumerate(COMPS):
         uid = rand_uuid()
         pmap = PINS[(libid, unit)]
+        # assembly variant: the ESP32 module and the three connectors are fitted
+        # by hand, so they stay out of the BOM/CPL
+        dnp = "yes" if ref in ("J3", "J5", "J6", "U6") else "no"
+        inbom = "no" if dnp == "yes" else "yes"
         pinout_blocks = "\n".join(f'\t\t(pin "{n}" (uuid {rand_uuid()}))' for n in pmap.keys())
         symtxt.append(f'''
 	(symbol
 		(lib_id "{libid}")
 		(at {x:.2f} {y:.2f} 0)
 		(unit {unit})
-		(exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no)
+		(exclude_from_sim no) (in_bom {inbom}) (on_board yes) (dnp {dnp})
 		(uuid {uid})
 		(property "Reference" "{ref}" (at {x:.2f} {y - 3.5:.2f} 0)
 			(show_name no) (do_not_autoplace yes)
