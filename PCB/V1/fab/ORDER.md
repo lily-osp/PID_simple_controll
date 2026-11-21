@@ -5,7 +5,7 @@
 | Size | 64 x 98 mm |
 | Layers | **4** (F.Cu / In1.Cu / In2.Cu / B.Cu) |
 | Thickness | 1.6 mm |
-| Copper | **2oz outer / 1oz inner** |
+| Copper | **1oz outer / 1oz inner** |
 | Surface finish | HASL lead-free |
 | Soldermask | green (any) |
 | Silkscreen | white |
@@ -30,14 +30,14 @@ Assembly positions: `positions.csv` (mm, drill origin).
 
 **Not available from LCSC - JLCPCB cannot assemble these:**
 
-| Ref | Part | Note |
+| Ref | Part | Where it comes from |
 |---|---|---|
-| U1 | JY01 (SOP-16) | JYQD family IC, not in the LCSC catalogue |
-| U3 | JY213L (TSSOP-20) | ditto |
-| Q2-Q4 | JY2605M (DFN-8) | ditto |
+| U1 | JY01 (SOP-16) | Shanghai Juyi (juyitech.com) / Taobao shop 301588897, ~CNY 5.4 |
+| Q2-Q4 | JY2605M (DFN5x6 dual N-MOS, 60 V 50 A 14 mOhm) | same vendor, ~CNY 2.5 each |
 
-Those five parts must be hand-soldered, or supplied to JLCPCB as consigned
-parts. Everything else is standard and can be assembled.
+Both are hand-soldered or supplied to JLCPCB as consigned parts; everything
+else in the BOM, **including U3 (FD6288T, C97683)**, is in the LCSC catalogue
+and can be assembled.
 
 **Through-hole parts** (C1-C5, U7, U8, RV1) appear in the CPL, but JLCPCB's
 economical PCBA covers SMD only - either use their through-hole option or
@@ -47,8 +47,8 @@ Assembly files:
 
 | File | Contents |
 |---|---|
-| `bom_jlcpcb.csv` | 27 lines, columns Comment / Designator / Footprint / LCSC Part # |
-| `cpl_jlcpcb.csv` | 65 placements, origin at the board's bottom-left corner, Y up |
+| `bom_jlcpcb.csv` | 26 part lines, columns Comment / Designator / Footprint / LCSC Part # |
+| `cpl_jlcpcb.csv` | 63 placements, origin at the board's bottom-left corner, Y up |
 
-The **LCSC Part # column is empty** - the schematic carries no LCSC numbers, so
-they must be assigned before the BOM can be uploaded.
+LCSC numbers come from `tools/lcsc_map.csv`; 2 of the 26 lines are
+blank (Q2-Q4, U1), because LCSC does not carry those parts.
