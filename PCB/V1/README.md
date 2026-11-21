@@ -5,9 +5,11 @@ architecture, with an **ESP32-C3 Super Mini** controller and a Hall sensor signa
 conditioner (RC filter → LM324 gain ×11 → 74HC14 Schmitt trigger).
 
 > `JYQD-V7.3E3-English.pdf` is a product datasheet (specs + wiring), not a schematic.
-> The circuit uses the JY IC family — **JY01** (SOP-16 controller), **JY213L** (TSSOP-20
-> 3-phase gate driver), **JY2605M** (DFN-8 dual-NMOS half-bridge) — the same silicon as
-> the reference board.
+> The circuit follows the JY family — **JY01** (SOP-16 controller) and **JY2605M**
+> (PowerPAK SO-8 dual N-MOS, 60 V / 50 A / 14 mΩ) — the same silicon as the reference
+> board. The gate driver is a **Fortior FD6288T** (TSSOP-20), which is pin-for-pin
+> identical to the JY213L of the reference board but is stocked by LCSC (C97683).
+> Datasheets for all three are in `docs/controller_specification/`.
 
 ## External interface (fully integrated — 3 connectors only)
 
@@ -25,7 +27,7 @@ internally to the JY01). No control port, no GPIO breakouts.
 ```
  V_IN ── 7812 ── +12V ── 7805 ── +5V
    │                │          │
- JY01 ──gate R── JY213L ──gate R── JY2605M ×3 ── phases A/B/C (J6)
+ JY01 ──gate R── FD6288T ─gate R── JY2605M ×3 ── phases A/B/C (J6)
    │                │
  Hall amp (5V): RC → LM324(×11) → 74HC14 → JY01 Hall inputs
  ESP32-C3: FG (scaled) / PWM → VR / EL / trim pot
@@ -33,9 +35,14 @@ internally to the JY01). No control port, no GPIO breakouts.
 
 - **Power tree**: `V_IN` (J5 P+) → U8 L7812 → `+12V` (gate-driver VCC) → U7 L7805 →
   `+5V` (logic). Hall amp runs on **+5V**, so 74HC14 outputs drive JY01 directly.
-- **Current sense**: P− passes through R1 shunt (R005, 2512) to GND; JY01 `Is` sees the
-  filtered shunt node (`ISENSE_F` via R36 + C21). *Caveat:* verify scaling against the
-  driver's internal sense topology before relying on current limit.
+- **Current sense**: the bridge return (`GND`) passes through the R1 shunt (5 mΩ, 2512)
+  to `PNEG` = J5 P−. **U1's `Vss` is tied to `PNEG`, not to the ground pour**, so the
+  `Is` pin (fed from the `GND` side of the shunt through R36 + C21) sees a *positive*
+  I·R. Referencing `Vss` to the pour instead — as V1 did — makes `Is` read negative and
+  the JY01's constant-current and overload trips never fire. The offset this puts on
+  U1's other pins is ≤ I·R ≈ 75 mV at 15 A, far inside its logic margins.
+  Trip points, per the JY01 datasheet: constant-current at `Is` = 0.1 V (20 A across
+  5 mΩ), shutdown at 0.2 V. Lower R1 to size them for a smaller motor.
 
 ## Design notes
 
@@ -53,6 +60,53 @@ internally to the JY01). No control port, no GPIO breakouts.
   strapping pin, internal pull-up holds it high), GPIO3=trim ADC (ADC1_CH3),
   GPIO4=EL (open-drain), GPIO5=ERR LED. GPIO6–10/20/21 are spare/unconnected.
 - **ERR LED** driven from GPIO5 via R32 (560 Ω); **PWR LED** from +5V via R20 (560 Ω).
+
+## 2026-11 rework — sourcing fix + three real bugs
+
+Driven by `tools/v2_power_stage_rework.py` (board) and `tools/gen_sch_full.py`
+(schematic); both are re-runnable and idempotent. After it: **DRC 0 errors / 0
+warnings / 0 unconnected**, and every pad's net matches the schematic netlist.
+
+| # | What was wrong | What changed |
+|---|---|---|
+| 1 | `U3` (JY213L) is not in the LCSC catalogue | **U3 is now a Fortior FD6288T (C97683)** — same TSSOP-20 land, same pin order (1-3 HIN, 4-6 LIN, 7 VCC, 8 COM, 9-11 LO3..LO1, 12-14 VS3/HO3/VB3, 15-17 phase 2, 18-20 phase 1). 250 V instead of 90 V, 1.5/1.8 A outputs, 200 ns dead time. It has **no internal bootstrap diodes** (the JY213L does), which is why D1–D3 stay. No copper moved. |
+| 2 | `Q2–Q4` used an invented DFN-8 footprint: eight 1.6 × 0.65 mm pads on opposite edges, no thermal pads — it does not match the real JY2605M and could not carry the current | **New land `footprints/JY2605M_PowerPAK_SO8_Dual.kicad_mod`**, derived from KiCad's vetted `PowerPAK_SO-8_Dual` and renumbered to the datasheet pinout **1 = S1, 2 = G1, 3 = S2, 4 = G2, 5,6 = D2, 7,8 = D1**. The symbol was rewritten to match (the old one invented `G_H/D_H/S_H/…`). |
+| 3 | `U1` pins 9–12 were wired 9 = BB, 10 = BT, 11 = CB, 12 = CT | The JY01 datasheet says **9 = BT, 10 = BB, 11 = CT, 12 = CB**. On the B and C legs the chip's top-arm output drove the bottom FET and vice versa, so the motor could not commutate (no shoot-through — the JY01 never asserts both arms of one leg — but it would cog or stall). Fixed. |
+| 4 | `Is` could never trip | U1's `Vss` sat on the ground pour, i.e. the **high** side of the R1 shunt, so `Is` saw a negative voltage and the constant-current and overload protections were dead. `Vss` and the C21 filter return now sit on `PNEG` (connector side); R36's cold end moved to the pour. See *Current sense* above. |
+
+**How the half-bridge is formed.** The JY2605M is two independent FETs, not an
+internally-connected half-bridge, so the board makes the bridge: D1 (left pad) = `V_IN`,
+S1 (bottom-left lead) = phase, D2 (right pad) = phase, S2 = `GND`, G1/G2 = gates. Each
+part is rotated 90°, drains up, leads down. The phase node therefore has to get from the
+bottom-left lead to the right-hand pad: it drops to a via pair under the package, crosses
+on **In1.Cu** as a 2 mm wrap, and comes back up east of the part. In1.Cu carried no
+routing before, so the three wraps are the only cuts in that plane.
+
+**Gate fan-out.** The six gate stubs drop into a via row 1.6 mm below each package and run
+west-to-east on **B.Cu** in six lanes (79.6 → 82.6 mm, 0.6 mm apart), each lane joining the
+existing In2.Cu run from its 15 Ω resistor at a hand-off via (x = 132.3 → 136.4 mm). Lane
+depth increases as the target moves west, so no lane crosses another.
+
+**Where the JY01 pin-order fix was made.** The chain `U1 pin → 100 Ω → FD6288T input` is
+correct end to end, so the crossing is undone once, at the driver's inputs, where there is
+room: the four approaches to U3 pins 2/3/5/6 are re-routed (two hops on In1.Cu, one on
+B.Cu, one extended on In2.Cu). The two 100 Ω pairs are identical parts, so `R10`/`R11` and
+`R12`/`R13` swap reference designators to follow the function they now serve.
+
+**3D model.** The new footprint ships a hand-built VRML body
+(`Custom.3dshapes/JY2605M_PowerPAK_SO8_Dual.wrl`) so Q2–Q4 appear as real packages in
+`render/routed_top.png` instead of bare pads — the old DFN footprint had no model at all.
+Representative geometry for visualisation, not mechanical clearance work.
+
+**Test points.** TP19/TP21/TP22/TP27 (the four western gate probes) moved onto the new gate
+vias and shrank to 1.0 mm; their silkscreen numbers moved with them. TP20 and TP23 are
+unchanged. New coordinates are in [`TESTPLAN.md`](TESTPLAN.md).
+
+**Still hand-fitted:** U1 (JY01) and Q2–Q4 (JY2605M) — both Shanghai Juyi parts, sold on
+that company's Taobao store (shop `301588897`) and through juyitech.com; datasheets are in
+`docs/controller_specification/`. If a fully LCSC-sourced power stage is ever wanted, the
+drop-ins are six singles — TM80N06NF (C7422888, DFN5x6, 60 V / 80 A / 5.2 mΩ) or
+NCE6050KA (C96013, TO-252) — which needs a new power-stage layout, not just a footprint.
 
 ## Pre-order audit
 
@@ -149,20 +203,25 @@ in `PCB/V2/` alongside it, so both stay buildable and comparable.
 The 4-layer stack gives the phases a dedicated corridor, so they are no longer starved by the 2-layer
 clearance wall. Length-weighted averages:
 
-| Net | 2-layer avg | **this board avg** | min | max |
-|---|---|---|---|---|
-| PH_A | 0.33 mm | **0.75 mm** | 0.25 mm | 0.80 mm |
-| PH_B | 0.35 mm | **0.74 mm** | 0.25 mm | 0.80 mm |
-| PH_C | 0.39 mm | **0.77 mm** | 0.25 mm | 0.80 mm |
-| V_IN | 0.80 mm | **0.79 mm** | 0.65 mm | 0.80 mm |
-| PNEG | 0.80 mm | **0.80 mm** | 0.80 mm | 0.80 mm |
-| +12V / +5V | 0.57 mm | 0.40 mm | 0.40 mm | 0.40 mm |
+| Net | 2-layer avg | V1 avg | **after the rework** | min | max |
+|---|---|---|---|---|---|
+| PH_A | 0.33 mm | 0.75 mm | **0.86 mm** | 0.25 mm | 2.00 mm |
+| PH_B | 0.35 mm | 0.74 mm | **0.88 mm** | 0.25 mm | 2.00 mm |
+| PH_C | 0.39 mm | 0.77 mm | **0.94 mm** | 0.25 mm | 2.00 mm |
+| V_IN | 0.80 mm | 0.79 mm | **1.19 mm** | 0.80 mm | 1.50 mm |
+| PNEG | 0.80 mm | 0.80 mm | 0.66 mm | 0.40 mm | 0.80 mm |
+| +12V / +5V | 0.57 mm | 0.40 mm | 0.40 mm | 0.40 mm | 0.40 mm |
 
-> **Current capability.** The phases now run at 0.75 mm average with only short
-> (sub-millimetre) necks at the driver's 0.65 mm-pitch pads. On **2 oz outer copper** that
-> is roughly **4 A per phase**, up from ~2.6 A on the 2-layer board. The `+12V`/`+5V` rails are thinner
-> than v1 (0.40 mm) because they are logic/gate-drive supplies: 0.40 mm on 2 oz carries
-> ~1.5 A, and the actual load is a few hundred mA.
+> **Current capability.** Inside the power stage the phase node is a 2.00 mm In1.Cu wrap
+> and the V_IN rail is 1.50 mm on 2 oz outer copper; the narrowest part of a phase path is
+> the 0.80 mm stub out of the high-side source lead. By IPC-2221 at a 20 °C rise that stub
+> sets the limit at **≈ 4.5 A continuous per phase**, with the rest of the path good for
+> 8–11 A, and the low-side return leaves through the pour and a via into all four planes.
+> That covers the 42BLF motor family's 1.9–5.7 A rated current; it is **not** the 15 A the
+> JYQD-V7.3E3 reference board claims, and the board should not be run there.
+> `PNEG` now carries only the sense reference and the logic return, so its 0.40 mm
+> branches are fine. The `+12V`/`+5V` rails stay at 0.40 mm (~1.5 A on 2 oz) against a
+> load of a few hundred mA.
 
 ## Component placement (64 × 98 mm)
 
@@ -172,7 +231,7 @@ clearance wall. Length-weighted averages:
 | Bottom edge | J3 (Hall port) |
 | Left column | C1/C2/C5 bulk → U8 (7812) → C3 → U7 (7805) → C4, i.e. the whole power chain |
 | Under J6 | Q2/Q3/Q4 (JY2605M) with R1 shunt |
-| Right of the FETs | U3 (JY213L), bootstrap C13–C15 + D1–D3, gate resistors R14–R19 |
+| Right of the FETs | U3 (FD6288T), bootstrap C13–C15 + D1–D3, gate resistors R14–R19 |
 | Middle | U1 (JY01) + R8–R13, then the Hall amp (U4 LM324, U5 74HC14, R21–R31) |
 | Bottom | U6 (ESP32-C3), RV1, LEDs |
 
@@ -227,6 +286,15 @@ fanout corridor, and placing it in line with the FETs makes them unreachable.
   representative body (22.5 x 18 x 1.6 mm + USB-C + antenna area) is used instead,
   from `Custom.3dshapes/ESP32-C3-SuperMini.wrl`. It is for visualisation, not mechanical
   clearance work.
+- **Q2-Q4 (JY2605M) have no vendor 3D model either** - Shanghai Juyi publishes an outline
+  drawing only, and the part is not in KiCad's library. A hand-built representative body
+  (6.15 x 5.15 x 1.05 mm, both lead rows, the pin-1 chamfer and the two exposed drain
+  pads) is used, from `Custom.3dshapes/JY2605M_PowerPAK_SO8_Dual.wrl`, generated from the
+  same geometry as the land pattern. Visualisation only, like U6. Without it the three
+  FETs render as bare pads and the power stage reads as unpopulated.
+  The source is kept in the repo at `3dmodels/JY2605M_PowerPAK_SO8_Dual.wrl` (it exists
+  nowhere else); copy it to `~/.local/share/kicad/3dmodels/Custom.3dshapes/` on a new
+  machine, alongside `ESP32-C3-SuperMini.wrl`, before rendering.
 - The mask gerbers are emitted as **G36/G37 region fills**, not aperture flashes. Counting
   `%ADD`/`D03` in them reports zero and looks catastrophic; count `G36` instead.
 
@@ -260,10 +328,12 @@ exclude them automatically):
 | J5 | MX126 2-pin terminal | power wires soldered directly |
 | J6 | MX126 3-pin terminal | motor wires soldered directly |
 
-**Five parts cannot be bought from LCSC**, so no assembly house that sources
-from that catalogue can fit them: **U1 (JY01)**, **U3 (JY213L)** and
-**Q2–Q4 (JY2605M)**. They are only sold through Alibaba/AliExpress/specialist
-vendors. Either hand-solder them or supply them as consigned parts.
+**Four parts cannot be bought from LCSC**: **U1 (JY01)** and **Q2–Q4 (JY2605M)**.
+Shanghai Juyi — the company behind the JYQD boards — sells both from its own
+Taobao store (shop `301588897`, JY01(8559) or JY01(6281) ≈ CNY 5.4, JY2605M
+≈ CNY 2.5) and through juyitech.com / Alibaba. Hand-solder them, or send them to
+JLCPCB as consigned parts. **U3 is now an FD6288T (C97683)**, so the gate driver
+is no longer in that list.
 
 **Test points.** Twenty-six probe pads are on the board, each with its number
 printed on the silkscreen next to it. TP1–TP27 are top-side pads; TP28 is a
@@ -285,13 +355,13 @@ hand as well.
 `fab/bom_jlcpcb.csv` (27 lines) and `fab/cpl_jlcpcb.csv` (65 placements) are in
 JLCPCB's upload format.
 
-**LCSC part numbers: 23 of 26 lines are filled**, each verified against live
-LCSC/JLCPCB stock (see `tools/lcsc_map.csv` for the mapping and manufacturer
-part). Only these remain blank, and only because LCSC does not carry them:
+**LCSC part numbers** come from `tools/lcsc_map.csv` (mapping + manufacturer part),
+each verified against live LCSC/JLCPCB stock. Only two lines remain blank, and only
+because LCSC does not carry them:
 
 | Line | Why |
 |---|---|
-| U1 (JY01), U3 (JY213L), Q2–Q4 (JY2605M) | not in the LCSC catalogue at all |
+| U1 (JY01), Q2–Q4 (JY2605M) | Juyi house parts, not in the LCSC catalogue |
 
 Values that changed so the parts are actually orderable:
 

@@ -37,15 +37,15 @@ One net has no dedicated pad and is probed on a component pad instead:
 | TP16 | GPIO4 | 109.32, 109.60 | 3.3 V = enabled, 0 V = forbidden |
 | TP17 | POT_ADC | 112.40, 109.88 | 0–3.3 V, midpoint at pot centre |
 | TP18 | VB_A | 147.11, 65.03 | V_IN + ~11 V when the high side switches |
-| TP19 | GQ_GH1 | 102.26, 77.44 | 0–12 V gate drive, phase A high side |
+| TP19 | GQ_GH1 | 106.37, 78.60 | 0–12 V gate drive, phase A high side |
 | TP20 | GQ_GH2 | 149.75, 81.51 | 0–12 V gate drive, phase B high side |
-| TP21 | GQ_GL1 | 102.01, 72.44 | 0–12 V gate drive, phase A low side |
-| TP22 | GQ_GL2 | 112.10, 71.07 | 0–12 V gate drive, phase B low side |
+| TP21 | GQ_GL1 | 108.91, 78.60 | 0–12 V gate drive, phase A low side |
+| TP22 | GQ_GL2 | 118.91, 78.60 | 0–12 V gate drive, phase B low side |
 | TP23 | GQ_GL3 | 155.19, 74.28 | 0–12 V gate drive, phase C low side |
 | TP24 | EL | 151.34, 81.71 | ≈5 V allowed / ≈0 V forbidden |
 | TP25 | VB_B | 151.93, 68.28 | V_IN + ~11 V when the high side switches |
 | TP26 | VB_C | 158.95, 65.90 | V_IN + ~11 V when the high side switches |
-| TP27 | GQ_GH3 | 121.41, 75.36 | 0–12 V gate drive, phase C high side |
+| TP27 | GQ_GH3 | 126.37, 78.60 | 0–12 V gate drive, phase C high side |
 | TP28 | HALL_OUT_A | 112.56, 98.51, **bottom side** | 0–5 V square wave, shaft turning |
 
 ## Stage 0 — unpowered
